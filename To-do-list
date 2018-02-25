@@ -1,0 +1,6 @@
+1. create and connect to mongo img
+2. initial load csv data into mongodb: python script or scala app?
+3. get data from mongodb through spark
+4. fix csv conversion py script
+
+
