@@ -3,6 +3,7 @@ package nl.rug.sc
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.functions._
 
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
@@ -115,13 +116,13 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String) {
       .option("inferSchema", "true") // Infers the data types (primitives), otherwise the schema will consist of Strings only
       .csv(pathToCsv) // Loads the data from the resources folder in src/main/resources, can also be a path on your storage device
 
-    dataSet.show() // Show first 20 results
+    dataSet.show(50) // Show first 20 results
 
     printContinueMessage()
 
     dataSet
-      .sort("count") // Sort by play count
-      .show()
+      .sort(desc("count")) // Sort by play count
+      .show(50)
 
     printContinueMessage()
 
@@ -132,7 +133,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String) {
 //      .sort($"lat") // Sort remaining cities by latitude, can also use $-sign notation here
 //      .show()
 
-    printContinueMessage()
+//    printContinueMessage()
 
 //    dataSet
 //      .withColumn("name_first_letter", $"name".substr(0,1)) // Create a new column which contains the first letter of the name of the city
@@ -141,7 +142,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String) {
 //      .sort($"name_first_letter") // Sort alphabetically
 //      .show(26) // Returns the number of cities in the US for each letter of the alphabet, shows the first 26 results
 
-    printContinueMessage()
+//    printContinueMessage()
 
     import org.apache.spark.sql.functions._ // For the round  (...) functionality
 
