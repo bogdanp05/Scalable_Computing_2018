@@ -13,5 +13,7 @@ libraryDependencies ++= List(
   "org.apache.spark" %% "spark-mllib"     % sparkVersion, // Machine learning library
   "org.apache.spark" %% "spark-streaming" % sparkVersion, // Streaming library
   "org.apache.spark" %% "spark-sql"       % sparkVersion, // SQL library
+  "org.mongodb.spark" %% "mongo-spark-connector" % sparkVersion, //mongo connector
   "org.apache.spark" %% "spark-graphx"    % sparkVersion  // Graph library
 )
+

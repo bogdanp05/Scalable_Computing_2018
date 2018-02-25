@@ -1,5 +1,5 @@
 package nl.rug.sc.app
-
+import com.mongodb.spark._
 import org.apache.spark.sql.SparkSession
 
 object SparkLocalMain extends App with SparkTrait {
@@ -9,6 +9,8 @@ object SparkLocalMain extends App with SparkTrait {
     .builder()
     .appName("spark-project")
     .master(master)
+    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data.triplets")
+    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/music_data.triplets")
     .getOrCreate()
 
   override def pathToCsv = getClass.getResource("/csv/train_triplets.csv").getPath

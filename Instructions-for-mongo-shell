@@ -1,0 +1,12 @@
+// instructions for mongo shell
+
+docker exec -it mongoSC mongo
+
+show dbs
+
+use music_data
+
+show collections
+
+db.triplets.find()
+
