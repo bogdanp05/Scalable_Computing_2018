@@ -20,7 +20,8 @@ def pathToCsv: String // path to csv file, also has to be implemented
 //    example.dataFrameExample()
 //    example.dataSetExample()
 //    example.dataSetAdvancedExample()
-    example.dataSetRealisticExample()
+//    example.dataSetRealisticExample()
+    example.mongoData()
 
     sparkSession.stop()
     println("Done")
