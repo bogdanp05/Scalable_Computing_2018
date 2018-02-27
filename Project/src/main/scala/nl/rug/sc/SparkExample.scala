@@ -1,6 +1,7 @@
 package nl.rug.sc
 
-import org.apache.spark.sql.{Row, SparkSession}
+import com.mongodb.spark.MongoSpark
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
@@ -154,6 +155,23 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String) {
 //      .show(100) // Returns the number of cities in 10k intervals
 
     dataSet.printSchema()
+
+    printContinueMessage()
+  }
+
+  def mongoData(): Unit = {
+    val dataSet = MongoSpark.load(sparkSession)
+    dataSet.printSchema()
+    println(dataSet.count())
+    println(dataSet.first().toString())
+
+    printContinueMessage()
+
+    val filteredDataSet = dataSet.filter(dataSet("count")>5)
+    filteredDataSet.show(numRows = 100, truncate = false)
+    printContinueMessage()
+
+    MongoSpark.save(filteredDataSet)
 
     printContinueMessage()
   }
