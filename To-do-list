@@ -1,0 +1,7 @@
+1. create and connect to mongo docker image : done
+2. initial load csv data into mongodb: python script or scala app? : done (python)
+3. get data from mongodb through spark : done
+4. fix csv conversion python script : done
+5. save dummy data to mongo : done
+
+
