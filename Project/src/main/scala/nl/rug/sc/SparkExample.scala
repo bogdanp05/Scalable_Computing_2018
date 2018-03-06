@@ -163,6 +163,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String) {
     val dataSet = MongoSpark.load(sparkSession)
     dataSet.printSchema()
     println(dataSet.count())
+
     println(dataSet.first().toString())
 
     printContinueMessage()

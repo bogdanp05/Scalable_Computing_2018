@@ -220,6 +220,7 @@ project/plugins/project/
 .history
 .lib/
 src/main/resources/csv/train_triplets.csv
+.idea/
 
 ### Scala ###
 
