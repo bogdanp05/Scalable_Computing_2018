@@ -14,9 +14,14 @@ remove:
 	@docker rm mongoSC
 	@docker rm mongo-vol
 
-kafka:
+kafka_create:
 	@docker pull spotify/kafka
 	@docker run -d -p 2181:2181 -p 9092:9092 --env ADVERTISED_HOST=kafka --env ADVERTISED_PORT=9092 --name kafka -h kafka spotify/kafka
+	sleep 2
+
+kafka_topic:
 	@docker exec kafka /opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic test
+
+kafka: kafka_create kafka_topic
 
 
