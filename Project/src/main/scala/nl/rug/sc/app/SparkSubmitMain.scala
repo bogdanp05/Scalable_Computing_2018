@@ -1,6 +1,9 @@
 package nl.rug.sc.app
 
+import nl.rug.sc.app.SparkLocalMain.master
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 object SparkSubmitMain extends App with SparkTrait {
   // How to Run:
@@ -41,6 +44,11 @@ object SparkSubmitMain extends App with SparkTrait {
     .getOrCreate()
 
   override def pathToCsv = getClass.getResource("/csv/train_triplets.csv").getPath
+
+  val master = "local[2]"
+
+  val conf = new SparkConf().setMaster(master)
+  override def streamingContext: StreamingContext= new StreamingContext(conf, Seconds(1))
 
   run() // Run is defined in the tait SparkBootcamp
 }

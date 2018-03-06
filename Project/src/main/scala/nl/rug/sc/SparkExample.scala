@@ -5,10 +5,19 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
+import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.streaming.kafka010._
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import scala.collection.JavaConverters._
+import java.util
 
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
-class SparkExample(sparkSession: SparkSession, pathToCsv: String) {
+class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingContext: StreamingContext) {
   private val sparkContext = sparkSession.sparkContext
 
   /**
@@ -175,6 +184,84 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String) {
     MongoSpark.save(filteredDataSet)
 
     printContinueMessage()
+  }
+
+  def streamMQSpark(): Unit = {
+    println("Here1")
+    val kafkaParams = Map[String, Object](
+      "bootstrap.servers" -> "localhost:9092",
+      "key.deserializer" -> classOf[StringDeserializer],
+      "value.deserializer" -> classOf[StringDeserializer],
+      "group.id" -> "group1",
+      "auto.offset.reset" -> "latest",
+      "enable.auto.commit" -> (false: java.lang.Boolean)
+    )
+
+    val topics = Array("test")
+    val stream = KafkaUtils.createDirectStream[String, String](
+      streamingContext,
+      PreferConsistent,
+      Subscribe[String, String](topics, kafkaParams)
+    )
+
+    println("Here2")
+    stream.map(record => (record.key, record.value)).print()
+    streamingContext.start()
+    streamingContext.awaitTermination()
+
+    println("Here3")
+  }
+
+  def kafkaProducer(): Unit = {
+    import java.util.Properties
+
+    import org.apache.kafka.clients.producer._
+
+    val  props = new Properties()
+    props.put("bootstrap.servers", "localhost:9092")
+
+    props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+    props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+
+    val producer = new KafkaProducer[String, String](props)
+
+    val TOPIC="test"
+
+    for(i<- 1 to 50){
+      val record = new ProducerRecord(TOPIC, "key", s"hello $i")
+      producer.send(record)
+      println(record)
+    }
+
+    val record = new ProducerRecord(TOPIC, "key", "the end "+new java.util.Date)
+    producer.send(record)
+
+    producer.close()
+  }
+
+  def kafkaConsumer(): Unit = {
+    import java.util.Properties
+
+    val TOPIC = "test"
+
+    val  props = new Properties()
+    props.put("bootstrap.servers", "localhost:9092")
+
+    props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+    props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+    props.put("group.id", "group1")
+
+    val consumer = new KafkaConsumer[String, String](props)
+
+    consumer.subscribe(util.Collections.singletonList(TOPIC))
+
+//    while(true){
+      val records=consumer.poll(500)
+      println(records.count())
+      for (record<-records.asScala){
+        println(record)
+//      }
+    }
   }
 
   private def printContinueMessage(): Unit = {
