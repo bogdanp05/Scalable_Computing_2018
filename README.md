@@ -5,5 +5,10 @@
 - Add the csv file in Project/src/main/resources/csv.
 - Use "make mongodb" to start MongoDB.
 - Use csv_to_mongo.py to populate the mongo database with the csv.
-- Use "make kafka" to set up a kafka instance with the topic "test".
+
+
+- Use "make kafka_create" to set up a kafka instance.
+- Use "make kafka_topic" to create the topic "test".
+- In `/etc/hosts` on your machine, map "kafka" to the ip address of the docker continer (e.g. `172.17.0.3 kafka`)
+
 

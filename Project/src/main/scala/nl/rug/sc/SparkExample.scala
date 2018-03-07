@@ -218,7 +218,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     import org.apache.kafka.clients.producer._
 
     val  props = new Properties()
-    props.put("bootstrap.servers", "localhost:9092")
+    props.put("bootstrap.servers", "kafka:9092")
 
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
     props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
@@ -245,7 +245,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     val TOPIC = "test"
 
     val  props = new Properties()
-    props.put("bootstrap.servers", "localhost:9092")
+    props.put("bootstrap.servers", "kafka:9092")
 
     props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
     props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
@@ -255,12 +255,12 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
 
     consumer.subscribe(util.Collections.singletonList(TOPIC))
 
-//    while(true){
+    while(true){
       val records=consumer.poll(500)
       println(records.count())
       for (record<-records.asScala){
         println(record)
-//      }
+      }
     }
   }
 
