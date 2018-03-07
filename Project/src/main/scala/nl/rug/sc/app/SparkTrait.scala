@@ -3,13 +3,15 @@ package nl.rug.sc.app
 import nl.rug.sc.SparkExample
 import nl.rug.sc.app.SparkLocalMain.sparkSession
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.streaming.StreamingContext
 
 trait SparkTrait { // A trait can be compared to a Java Interface
   def sparkSession: SparkSession // this def has to be implemented when extending this trait
-def pathToCsv: String // path to csv file, also has to be implemented
+  def pathToCsv: String // path to csv file, also has to be implemented
+  def streamingContext: StreamingContext
 
   def run(): Unit = {
-    val example = new SparkExample(sparkSession, pathToCsv)
+    val example = new SparkExample(sparkSession, pathToCsv, streamingContext)
 
     // NOTE: change the log level in the log4j.properties found in src/main/resources/log4j.properties. For demo purpose
     // the log level is WARN, showing only warnings, but for development INFO is recommended, for even more details use
@@ -21,7 +23,13 @@ def pathToCsv: String // path to csv file, also has to be implemented
 //    example.dataSetExample()
 //    example.dataSetAdvancedExample()
 //    example.dataSetRealisticExample()
-    example.mongoData()
+
+//    example.mongoData()
+//    This is to get the stream directly from Kafka into Spark
+//    example.streamMQSpark()
+
+    example.kafkaProducer()
+    example.kafkaConsumer()
 
     sparkSession.stop()
     println("Done")
