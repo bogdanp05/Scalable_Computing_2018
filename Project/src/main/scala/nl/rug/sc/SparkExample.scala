@@ -12,13 +12,18 @@ import org.apache.spark.streaming.kafka010._
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.kafka.clients.consumer.KafkaConsumer
+
 import scala.collection.JavaConverters._
 import java.util
+
+import com.typesafe.config.ConfigFactory
 
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
 class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingContext: StreamingContext) {
   private val sparkContext = sparkSession.sparkContext
+  private val conf = ConfigFactory.load()
+  private val kafka_server = conf.getString("spark-project.kafka.server")
 
   /**
     * An example using RDD's, try to avoid RDD's
@@ -189,7 +194,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   def streamMQSpark(): Unit = {
     println("Here1")
     val kafkaParams = Map[String, Object](
-      "bootstrap.servers" -> "localhost:9092",
+      "bootstrap.servers" -> kafka_server,
       "key.deserializer" -> classOf[StringDeserializer],
       "value.deserializer" -> classOf[StringDeserializer],
       "group.id" -> "group1",
@@ -218,7 +223,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     import org.apache.kafka.clients.producer._
 
     val  props = new Properties()
-    props.put("bootstrap.servers", "kafka:9092")
+    props.put("bootstrap.servers", kafka_server)
 
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
     props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
@@ -229,7 +234,8 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
 
     for(i<- 1 to 50){
       val record = new ProducerRecord(TOPIC, "key", s"hello $i")
-      producer.send(record)
+      val result = producer.send(record)
+      println(result.isDone)
       println(record)
     }
 
@@ -245,7 +251,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     val TOPIC = "test"
 
     val  props = new Properties()
-    props.put("bootstrap.servers", "kafka:9092")
+    props.put("bootstrap.servers", kafka_server)
 
     props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
     props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
