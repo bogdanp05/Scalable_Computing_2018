@@ -22,10 +22,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import scala.collection.JavaConverters._
 import java.util
 
-<<<<<<< HEAD
-=======
 import com.typesafe.config.ConfigFactory
->>>>>>> f1a7ab21db2e9ab71b80dc62944cef75b868fe9d
 
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
