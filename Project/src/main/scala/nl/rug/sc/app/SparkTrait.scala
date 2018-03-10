@@ -28,8 +28,10 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    This is to get the stream directly from Kafka into Spark
 //    example.streamMQSpark()
 
-    example.kafkaProducer()
-    example.kafkaConsumer()
+//    example.kafkaProducer()
+//    example.kafkaConsumer()
+
+    example.fmExample()
 
     sparkSession.stop()
     println("Done")

@@ -1,10 +1,16 @@
 package nl.rug.sc
 
+import org.bson.Document
 import com.mongodb.spark.MongoSpark
+import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
+import org.apache.spark.rdd.RDD
+
+import org.apache.spark.mllib.recommendation.{ALS, Rating, MatrixFactorizationModel}
+
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.streaming.StreamingContext
@@ -12,8 +18,10 @@ import org.apache.spark.streaming.kafka010._
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.kafka.clients.consumer.KafkaConsumer
+
 import scala.collection.JavaConverters._
 import java.util
+
 
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
@@ -262,6 +270,19 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
         println(record)
       }
     }
+  }
+
+  def fmExample():Unit = {
+    val dataSet = MongoSpark.load(sparkSession)
+    val myRdd: RDD[Row] = dataSet.rdd
+//    val myRdd = MongoSpark.load(sparkSession.sparkContext)
+    println()
+    println("=================================")
+    println(dataSet.getClass)
+    println("=================================")
+    println()
+    val FA = new FmAlgo()
+    val W = FA.trainFM_parallel_sgd(sparkContext, myRdd, dataSet)
   }
 
   private def printContinueMessage(): Unit = {
