@@ -34,16 +34,19 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    example.streamMQSpark()
 
 
-    example.fmExample()
-
-//    example.kafkaProducer()
-//    example.kafkaConsumer()
-
-    // val futureCons = Future{
-    //     example.kafkaConsumer()
-    // }
-    // Await.result(futureCons, Duration.Inf)
+//    example.fmExample()
     
+
+    val futureCons = Future{
+      example.kafkaConsumer()
+    }
+
+    val futureProd = Future{
+      example.kafkaStreamProducer()
+    }
+
+
+    Await.result(futureCons, Duration.Inf)
     sparkSession.stop()
 
 

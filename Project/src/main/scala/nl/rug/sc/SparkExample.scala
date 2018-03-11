@@ -8,9 +8,7 @@ import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
 import org.apache.spark.rdd.RDD
-
-import org.apache.spark.mllib.recommendation.{ALS, Rating, MatrixFactorizationModel}
-
+import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.streaming.StreamingContext
@@ -25,12 +23,15 @@ import java.util.Properties
 
 import com.typesafe.config.ConfigFactory
 
+import scala.io.Source
+
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
 class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingContext: StreamingContext) {
   private val sparkContext = sparkSession.sparkContext
   private val conf = ConfigFactory.load()
   private val kafka_server = conf.getString("spark-project.kafka.server")
+  private val streaming_source = conf.getString("spark-project.kafka.source")
   private val TOPIC = "test"
   private val  props = new Properties()
   props.put("bootstrap.servers", kafka_server)
@@ -248,18 +249,19 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     producer.close()
   }
 
-  def kafkaInfProducer(): Unit = {
+  def kafkaStreamProducer(): Unit = {
     import org.apache.kafka.clients.producer._
     val producer = new KafkaProducer[String, String](props)
-
-    var i = 0
-    while (true){
-      i = i + 1
-      val record = new ProducerRecord(TOPIC, "key", s"sensor value with index $i")
+    val path = getClass.getResource(streaming_source).getPath
+    val bufferedSource = Source.fromFile(path)
+    for (line <- bufferedSource.getLines){
+      val cols = line.split(",").map(_.trim)
+      println(cols(1))
+      val record = new ProducerRecord(TOPIC, "key", cols(1))
       val result = producer.send(record)
-      Thread.sleep(300)
+      Thread.sleep(2500)
     }
-
+    bufferedSource.close()
     producer.close()
   }
 
@@ -269,7 +271,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     consumer.subscribe(util.Collections.singletonList(TOPIC))
 
     while(true){
-      val records=consumer.poll(1000)
+      val records=consumer.poll(2000)
       println(records.count())
       for (record<-records.asScala){
         println(record)

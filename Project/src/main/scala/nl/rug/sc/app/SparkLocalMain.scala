@@ -11,8 +11,8 @@ object SparkLocalMain extends App with SparkTrait {
     .builder()
     .appName("spark-project")
     .master(master)
-    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data.triplets")
-    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/music_data.results")
+    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data2.triplets")
+    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/music_data2.results")
     .getOrCreate()
 
   override def pathToCsv = getClass.getResource("/csv/train_triplets.csv").getPath
