@@ -288,6 +288,8 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     println()
     val FA = new FmAlgo()
     val W = FA.trainFM_parallel_sgd(sparkContext, myRdd, dataSet)
+
+    printContinueMessage()
   }
 
   private def printContinueMessage(): Unit = {

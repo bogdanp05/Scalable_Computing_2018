@@ -168,24 +168,9 @@ class FmAlgo {
   }
 
 
-  def trainFM_parallel_sgd (sc: SparkContext, myRdd: RDD[Row], dataset: DataFrame, iterations: Int = 50, iter_sgd : Int =5, alpha : Double =0.01, regParam : Double = 0.0, factorLength : Int = 4, verbose: Boolean =false) : BDM[Double] = {
-    // RDD[Document]
-//    val ratings = myRdd.map(_.split(',') match { case Array(user, item, rate) =>
-//      Rating(user.toInt, item.toInt, rate.toDouble)
-//    })
-//
-//    val dataDF = sc.textFile("/home/whisper/Desktop/dataset/lastfm-dataset-1K/real.tsv")
-//      .map(parseRating).reduceByKey(_ + _).map {
-//      case (userAndMusic: String, count: Int) => {
-//        val Array(userID, music) = userAndMusic.split("\t")
-//        (userID toInt, music, count toDouble)
-//      }
-//    }.toDF("userID", "music", "count").cache
-
-//    val ratings = myRdd.map {
-//      case Row(user: String, song: String, count: String) => Rating(user.toInt, song.toInt, count.toInt)
-//    }.cache
-
+  def trainFM_parallel_sgd (sc: SparkContext, myRdd: RDD[Row], dataset: DataFrame, iterations: Int = 50,
+                            iter_sgd : Int =5, alpha : Double =0.01, regParam : Double = 0.0,
+                            factorLength : Int = 4, verbose: Boolean =false) : BDM[Double] = {
 
     val ratings: RDD[Rating] = ratingCreater.createRatings(myRdd)
 
@@ -194,6 +179,7 @@ class FmAlgo {
     val numIterations = 10
     val model = ALS.train(ratings, rank, numIterations, 0.01)
 
+    println("====Model built====")
     // Evaluate the model on rating data
     val usersProducts = ratings.map { case Rating(user, product, rate) =>
       (user, product)
@@ -212,6 +198,8 @@ class FmAlgo {
       val err = (r1 - r2)
       err * err
     }.mean()
+
+    println(s"====Mean error is ==== $MSE")
 
     val path = "target/tmp/"
     val src = "myCollaborativeFilter"
@@ -256,46 +244,6 @@ class FmAlgo {
     * returns: W
     *    Breeze dense matrix holding the model weights
     */
-
-    /*
-    val data: RDD[LabeledPoint] = null
-    val train = data
-    val valid = data
-    if (verbose) {
-      val Array(train, valid) = data.randomSplit(Array(0.8, 0.2))
-      valid.cache()
-    }
-    train.cache()
-
-    val train_X = train.map(xy => xy.features).glom()
-    val train_Y = train.map(xy => xy.label).glom()
-    val train_XY = train_X.zip(train_Y)
-    train_XY.cache()
-
-    val nrFeat = train_XY.first()._1(0).size
-    var W: BDM[Double] = BDM.rand(nrFeat, factorLength)
-    W :*= 1 / sqrt(sum(W :* W))
-
-    if (verbose) {
-      println("iter   train_logl  valid_logl")
-      println("%d         %.5f   %.5f".format(0, evaluate(train, W), evaluate(valid, W)))
-
-    }
-
-
-    for (i <- 1 to iterations) {
-      val wb = sc.broadcast(W)
-      val wsub = train_XY.map(xy => sgd_subset(xy._1, xy._2, wb.value, iter_sgd, alpha, regParam))
-      W = wsub.map(w => w.map(_ / 5)).reduce(_ + _)
-      if (verbose) {
-        println("%d         %.5f   %.5f".format(i, evaluate(train, W), evaluate(valid, W)))
-      }
-    }
-
-    train_XY.unpersist()
-
-    return W
-    */
   }
 }
 
@@ -317,9 +265,6 @@ object userConverter {
     val map1: Map[String, Int] =
     userIdToInt.collect().toMap.mapValues(_.toInt).map(identity)
 
-//    println("=====")
-//    println(map1)
-
     return map1
   }
 }
@@ -336,9 +281,6 @@ object songConverter{
     val map2: Map[String, Int] =
       songIdToInt.collect().toMap.mapValues(_.toInt).map(identity)
 
-//    println("=====")
-//    println(map2)
-
     return map2
   }
 }
@@ -353,17 +295,6 @@ object ratingCreater{
       Rating(userIdToInt(obj.getAs[String]("user")),
         songIdToInt(obj.getAs[String]("song")), obj.getAs[String]("count").toDouble)
     }
-
-    // Transform to MLLib rating
-//    val ratings = rddToConvert.collect().foreach { obj =>
-//      Rating(userIdToInt(obj.getAs[String]("user")),
-//        songIdToInt(obj.getAs[String]("song")), obj.getAs[String]("count").toDouble)
-//    }
-
-
-//    val ratings = rddToConvert.map{
-//      case Row(user: String, song: String, count: String) => Rating(userIdToInt(user), songIdToInt(song), count.toDouble)
-//    }.cache
 
     return ratings
 
