@@ -6,7 +6,7 @@
 - Use "make mongodb" to start MongoDB.
 - Use csv_to_mongo.py to populate the mongo database with the csv.
 
-__
+
 - Use "make kafka_create" to set up a kafka instance.
 - Use "make kafka_topic" to create the topic "test".
 - In `/etc/hosts` on your pc, map "kafka" to the ip address of the docker continer (e.g. `172.17.0.3 kafka`)

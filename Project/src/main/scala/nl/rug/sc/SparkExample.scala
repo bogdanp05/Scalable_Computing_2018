@@ -21,6 +21,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 
 import scala.collection.JavaConverters._
 import java.util
+import java.util.Properties
 
 import com.typesafe.config.ConfigFactory
 
@@ -30,6 +31,14 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   private val sparkContext = sparkSession.sparkContext
   private val conf = ConfigFactory.load()
   private val kafka_server = conf.getString("spark-project.kafka.server")
+  private val TOPIC = "test"
+  private val  props = new Properties()
+  props.put("bootstrap.servers", kafka_server)
+  props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+  props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+  props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+  props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+  props.put("group.id", "group1")
 
   /**
     * An example using RDD's, try to avoid RDD's
@@ -180,6 +189,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def mongoData(): Unit = {
+    //val rdd = MongoSpark.load(sparkSession.sparkContext)
     val dataSet = MongoSpark.load(sparkSession)
     dataSet.printSchema()
     println(dataSet.count())
@@ -224,24 +234,11 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def kafkaProducer(): Unit = {
-    import java.util.Properties
-
     import org.apache.kafka.clients.producer._
-
-    val  props = new Properties()
-    props.put("bootstrap.servers", kafka_server)
-
-    props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-    props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-
     val producer = new KafkaProducer[String, String](props)
-
-    val TOPIC="test"
-
-    for(i<- 1 to 50){
+    for(i<- 1 to 20){
       val record = new ProducerRecord(TOPIC, "key", s"hello $i")
       val result = producer.send(record)
-      println(result.isDone)
       println(record)
     }
 
@@ -251,24 +248,28 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     producer.close()
   }
 
+  def kafkaInfProducer(): Unit = {
+    import org.apache.kafka.clients.producer._
+    val producer = new KafkaProducer[String, String](props)
+
+    var i = 0
+    while (true){
+      i = i + 1
+      val record = new ProducerRecord(TOPIC, "key", s"sensor value with index $i")
+      val result = producer.send(record)
+      Thread.sleep(300)
+    }
+
+    producer.close()
+  }
+
   def kafkaConsumer(): Unit = {
-    import java.util.Properties
-
-    val TOPIC = "test"
-
-    val  props = new Properties()
-    props.put("bootstrap.servers", kafka_server)
-
-    props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-    props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-    props.put("group.id", "group1")
-
     val consumer = new KafkaConsumer[String, String](props)
 
     consumer.subscribe(util.Collections.singletonList(TOPIC))
 
     while(true){
-      val records=consumer.poll(500)
+      val records=consumer.poll(1000)
       println(records.count())
       for (record<-records.asScala){
         println(record)

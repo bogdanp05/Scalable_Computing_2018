@@ -1,9 +1,14 @@
 package nl.rug.sc.app
 
+
 import nl.rug.sc.SparkExample
 import nl.rug.sc.app.SparkLocalMain.sparkSession
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.StreamingContext
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
 
 trait SparkTrait { // A trait can be compared to a Java Interface
   def sparkSession: SparkSession // this def has to be implemented when extending this trait
@@ -28,12 +33,20 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    This is to get the stream directly from Kafka into Spark
 //    example.streamMQSpark()
 
-//    example.kafkaProducer()
-//    example.kafkaConsumer()
 
     example.fmExample()
 
+//    example.kafkaProducer()
+//    example.kafkaConsumer()
+
+    // val futureCons = Future{
+    //     example.kafkaConsumer()
+    // }
+    // Await.result(futureCons, Duration.Inf)
+    
     sparkSession.stop()
+
+
     println("Done")
   }
 }
