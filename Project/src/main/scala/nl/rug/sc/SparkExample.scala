@@ -22,6 +22,7 @@ import java.util
 import java.util.Properties
 
 import com.typesafe.config.ConfigFactory
+import nl.rug.sc.recommendalgo.Recommend
 
 import scala.io.Source
 
@@ -288,9 +289,9 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     println(dataSet.getClass)
     println("=================================")
     println()
-    val FA = new FmAlgo()
-    val W = FA.trainFM_parallel_sgd(sparkContext, myRdd, dataSet)
-
+//    val FA = new FmAlgo()
+//    val W = FA.trainFM_parallel_sgd(sparkContext, myRdd, dataSet)
+    new Recommend().train(sparkContext, myRdd)
     printContinueMessage()
   }
 
