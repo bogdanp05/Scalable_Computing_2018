@@ -3,8 +3,8 @@ package nl.rug.sc
 import org.bson.Document
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config._
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
+import org.apache.spark.sql.types._
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
 import org.apache.spark.rdd.RDD
@@ -21,6 +21,7 @@ import scala.collection.JavaConverters._
 import java.util
 import java.util.Properties
 
+import com.mongodb.spark.rdd.MongoRDD
 import com.typesafe.config.ConfigFactory
 import nl.rug.sc.recommendalgo.Recommend
 import nl.rug.sc.misc._
@@ -306,10 +307,16 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
 
     val model = recommender.train(sparkContext, myRdd)
     val toSave = model.map{ strDenVec =>
-      new Document("_id", strDenVec._1).append("vectors", strDenVec._2.toArray.toList.asJava)
+      //      new Document("_id", strDenVec._1).append("vectors", strDenVec._2.toArray.toList.asJava)
+      Row(strDenVec._1, strDenVec._2.toArray)
     }
 
-    MongoSpark.save(toSave)
+    val df = sparkSession.sqlContext.createDataFrame(toSave, StructType(
+      StructField("_id", StringType, false)::
+        StructField("vectors", ArrayType(DoubleType, false), false)::Nil)
+    )
+    MongoSpark.write(df).option("database", "music_data2").option("collection", "results").mode("overwrite").save()
+    //    MongoSpark.save(toSave)
     printContinueMessage()
   }
 

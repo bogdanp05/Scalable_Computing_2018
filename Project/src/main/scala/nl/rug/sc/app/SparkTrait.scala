@@ -18,18 +18,6 @@ trait SparkTrait { // A trait can be compared to a Java Interface
   def run(): Unit = {
     val example = new SparkExample(sparkSession, pathToCsv, streamingContext)
 
-    // NOTE: change the log level in the log4j.properties found in src/main/resources/log4j.properties. For demo purpose
-    // the log level is WARN, showing only warnings, but for development INFO is recommended, for even more details use
-    // DEBUG or TRACE as the log level.
-    // https://logging.apache.org/log4j/2.x/manual/customloglevels.html
-
-
-//    example.rddExample()
-//    example.dataFrameExample()
-//    example.dataSetExample()
-//    example.dataSetAdvancedExample()
-//    example.dataSetRealisticExample()
-
 //    example.mongoData()
 //    This is to get the stream directly from Kafka into Spark
 //    example.streamMQSpark()
@@ -38,22 +26,22 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    example.randomSample(0.01)
 
     /* run this to get training results */
-//    example.fmTrainingExample()
+    example.fmTrainingExample()
 
-    example.predictExample("SOTJSCD12A8C14093B")
-    
-
-    val futureCons = Future{
-      example.kafkaConsumer()
-    }
-
-    val futureProd = Future{
-      example.kafkaStreamProducer()
-    }
+//    example.predictExample("SOSIWOT12AB018E68B")
 
 
-    Await.result(futureCons, Duration.Inf)
-    sparkSession.stop()
+//    val futureCons = Future{
+//      example.kafkaConsumer()
+//    }
+//
+//    val futureProd = Future{
+//      example.kafkaStreamProducer()
+//    }
+//
+//
+//    Await.result(futureCons, Duration.Inf)
+//    sparkSession.stop()
 
 
     println("Done")

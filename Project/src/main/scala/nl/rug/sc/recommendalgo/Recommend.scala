@@ -105,15 +105,15 @@ object predictor{
     println("===item factor length: " + artist_factors.count())
 
     val targetVector = artist_factors.lookup(artistid).head
-    val topRecommended = artist_factors.map { obj =>
-      val dotProduct = (obj._2 - targetVector) dot targetVector
-      (obj._1, dotProduct * dotProduct, obj._2)
-    }.sortBy(_._2, true).collect()
-
 //    val topRecommended = artist_factors.map { obj =>
-//      val dotProduct = normalize(obj._2) dot normalize(targetVector)
-//      (obj._1, dotProduct, obj._2)
-//    }.sortBy(_._2, false).collect()
+//      val dotProduct = (obj._2 - targetVector) dot targetVector
+//      (obj._1, dotProduct * dotProduct, obj._2)
+//    }.sortBy(_._2, true).collect()
+
+    val topRecommended = artist_factors.map { obj =>
+      val dotProduct = normalize(obj._2) dot normalize(targetVector)
+      (obj._1, dotProduct, obj._2)
+    }.sortBy(_._2, false).collect()
 
     println(artistid)
     println(targetVector)
@@ -147,13 +147,13 @@ class Recommend {
     val ratings = ratingCreater.createTriplet(myRdd)
 //    val ratings = sc.textFile("hdfs://cshadoop1.utdallas.edu//user/bxm142230/input/ratings.dat").map(l => (l.split("::")(0),l.split("::")(1),l.split("::")(2)))
 
-    // counts unique movies
+    // counts unique songs
     val itemCount = ratings.map(x => x._2).distinct.count
 
     // counts unique user
     val userCount = ratings.map(x => x._1).distinct.count
 
-    // get distinct movies
+    // get distinct songs
     val items = ratings.map(x => x._2).distinct
 
     // get distinct user
@@ -165,7 +165,7 @@ class Recommend {
     //create item latent vectors
     val itemMatrix = items.map(x => (x, DenseVector.zeros[Double](k))).persist(StorageLevel.MEMORY_ONLY)
     //Initialize the values to 0.5
-    // generated a latent vector for each item using movie id as key Array((movie_id,densevector)) e.g (2,DenseVector(0.5, 0.5, 0.5, 0.5, 0.5)
+    // generated a latent vector for each item using song id as key Array((song_id,densevector)) e.g (2,DenseVector(0.5, 0.5, 0.5, 0.5, 0.5)
     var myitemMatrix = itemMatrix.map(x => (x._1, x._2(0 to k - 1) := 0.5)).partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
 
     //create user latent vectors
@@ -193,9 +193,9 @@ class Recommend {
       regMatrix(3, ::) := DenseVector(0, 0, 0, regfactor, 0).t
       regMatrix(4, ::) := DenseVector(0, 0, 0, 0, regfactor).t
 
-      var movieJoinedData = myitemMatrix.join(ratingByItem).persist(StorageLevel.MEMORY_ONLY)
-      var tempUserMatrixRDD = movieJoinedData.map(q => {
-        var movie = q._1
+      var songJoinedData = myitemMatrix.join(ratingByItem).persist(StorageLevel.MEMORY_ONLY)
+      var tempUserMatrixRDD = songJoinedData.map(q => {
+        var song = q._1
         var (user, rating) = q._2._2
         var tempDenseVector = q._2._1
         var tempTransposeVector = tempDenseVector.t
@@ -204,8 +204,8 @@ class Recommend {
       }
       ).reduceByKey(_ + _).map(q => (q._1, inv(q._2 + regMatrix))).persist(StorageLevel.MEMORY_ONLY)
 
-      var tempUserVectorRDD = movieJoinedData.map(q => {
-        var movie = q._1
+      var tempUserVectorRDD = songJoinedData.map(q => {
+        var song = q._1
         var (user, rating) = q._2._2
         var tempDenseVector = q._2._1
 
@@ -218,49 +218,43 @@ class Recommend {
       myuserMatrix = finalUserVectorRDD.partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
 
       var userJoinedData = myuserMatrix.join(ratingByUser).persist(StorageLevel.MEMORY_ONLY)
-      var tempMovieMatrixRDD = userJoinedData.map(q => {
+      var tempSongMatrixRDD = userJoinedData.map(q => {
         var tempUser = q._1
-        var (movie, rating) = q._2._2
+        var (song, rating) = q._2._2
         var tempDenseVector = q._2._1
         var tempTransposeVector = tempDenseVector.t
         var tempDenseMatrix = tempDenseVector * tempTransposeVector
-        (movie, tempDenseMatrix)
+        (song, tempDenseMatrix)
       }
       ).reduceByKey(_ + _).map(q => (q._1, inv(q._2 + regMatrix))).persist(StorageLevel.MEMORY_ONLY)
 
-      var tempMovieVectorRDD = userJoinedData.map(q => {
+      var tempSongVectorRDD = userJoinedData.map(q => {
         var tempUser = q._1
-        var (movie, rating) = q._2._2
+        var (song, rating) = q._2._2
         var tempDenseVector = q._2._1
 
         var secondTempVector = tempDenseVector :* rating.toDouble
-        (movie, secondTempVector)
+        (song, secondTempVector)
       }
       ).reduceByKey(_ + _).persist(StorageLevel.MEMORY_ONLY)
 
-      var finalMovieVectorRDD = tempMovieMatrixRDD.join(tempMovieVectorRDD).map(p => (p._1, p._2._1 * p._2._2)).persist(StorageLevel.MEMORY_ONLY)
-      myitemMatrix = finalMovieVectorRDD.partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
+      var finalSongVectorRDD = tempSongMatrixRDD.join(tempSongVectorRDD).map(p => (p._1, p._2._1 * p._2._2)).persist(StorageLevel.MEMORY_ONLY)
+      myitemMatrix = finalSongVectorRDD.partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
 
     }
-
-    /*
-    user 1 and movieid 914,
-    user 1757 and movieid 1777,
-    user 1759 and movieid 231.
-    */
 
     /* this helps check the approximation of SVD
     var pairsList = List(("fffff9534445f481b6ab91c345500083d2ce4df1", "SOTJSCD12A8C14093B"),
       ("ffffd330940a2a40754ec0383391f55c6129f48b", "SOCRVWC12A6310F991"),
       ("ffffcfeb0c1b66bd212ea58d918c7dc62fb9c3a5", "SOWEJXA12A6701C574"))
-    for ((user, movie) <- pairsList) {
+    for ((user, song) <- pairsList) {
       var userDenseVector = myuserMatrix.lookup(user)(0)
-      var movieDenseVector = myitemMatrix.lookup(movie)(0)
-      var predictedRating = userDenseVector.t * movieDenseVector
+      var songDenseVector = myitemMatrix.lookup(song)(0)
+      var predictedRating = userDenseVector.t * songDenseVector
       println("==========================================================")
       println("Latent vector for user " + user + " : " + userDenseVector)
-      println("Latent vector for movie " + movie + " : " + movieDenseVector)
-      println("Predicted Rating by user " + user + " for movie " + movie + " : " + predictedRating)
+      println("Latent vector for song " + song + " : " + songDenseVector)
+      println("Predicted Rating by user " + user + " for song " + song + " : " + predictedRating)
     }
     */
 
