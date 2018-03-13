@@ -2,7 +2,7 @@ package nl.rug.sc
 
 import org.bson.Document
 import com.mongodb.spark.MongoSpark
-import com.mongodb.spark.rdd.api.java.JavaMongoRDD
+import com.mongodb.spark.config._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -23,6 +23,7 @@ import java.util.Properties
 
 import com.typesafe.config.ConfigFactory
 import nl.rug.sc.recommendalgo.Recommend
+import nl.rug.sc.misc._
 
 import scala.io.Source
 
@@ -35,12 +36,14 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   private val streaming_source = conf.getString("spark-project.kafka.source")
   private val TOPIC = "test"
   private val  props = new Properties()
+  private val recommender = new Recommend()
   props.put("bootstrap.servers", kafka_server)
   props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
   props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
   props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
   props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
   props.put("group.id", "group1")
+
 
   /**
     * An example using RDD's, try to avoid RDD's
@@ -280,19 +283,42 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     }
   }
 
-  def fmExample():Unit = {
-    val dataSet = MongoSpark.load(sparkSession)
-    val myRdd: RDD[Row] = dataSet.rdd
+  def randomSample(percent:Double): Unit = {
+    val readConfig = ReadConfig(Map("database" -> "music_data", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val dataSet = MongoSpark.load(sparkContext, readConfig)
+    val sampledDS = dataSet.sample(false, percent)
+
+    val writeConfig = WriteConfig(Map("database" -> "music_data2", "collection" -> "triplets", "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
+    MongoSpark.save(sampledDS, writeConfig)
+    printContinueMessage()
+  }
+
+  def fmTrainingExample():Unit = {
+    val readConfig = ReadConfig(Map("database" -> "music_data2", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val dataSet = MongoSpark.load(sparkContext, readConfig)
+    val myRdd: RDD[Document] = dataSet.rdd
     //    val myRdd = MongoSpark.load(sparkSession.sparkContext)
     println()
     println("=================================")
     println(dataSet.getClass)
     println("=================================")
     println()
-//    val FA = new FmAlgo()
-//    val W = FA.trainFM_parallel_sgd(sparkContext, myRdd, dataSet)
-    new Recommend().train(sparkContext, myRdd)
+
+    val model = recommender.train(sparkContext, myRdd)
+    val toSave = model.map{ strDenVec =>
+      new Document("_id", strDenVec._1).append("vectors", strDenVec._2.toArray.toList.asJava)
+    }
+
+    MongoSpark.save(toSave)
     printContinueMessage()
+  }
+
+  def predictExample(songId: String): Unit = {
+
+    val readConfig = ReadConfig(Map("collection" -> "results", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val customRdd = MongoSpark.load(sparkContext, readConfig)
+
+    recommender.predictBySongId(songId, customRdd)
   }
 
   private def printContinueMessage(): Unit = {

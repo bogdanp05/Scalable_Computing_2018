@@ -23,6 +23,7 @@ trait SparkTrait { // A trait can be compared to a Java Interface
     // DEBUG or TRACE as the log level.
     // https://logging.apache.org/log4j/2.x/manual/customloglevels.html
 
+
 //    example.rddExample()
 //    example.dataFrameExample()
 //    example.dataSetExample()
@@ -33,8 +34,13 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    This is to get the stream directly from Kafka into Spark
 //    example.streamMQSpark()
 
+    /* run this to get sampled dataset */
+//    example.randomSample(0.01)
 
-//    example.fmExample()
+    /* run this to get training results */
+//    example.fmTrainingExample()
+
+    example.predictExample("SOTJSCD12A8C14093B")
     
 
     val futureCons = Future{

@@ -1,5 +1,8 @@
 package nl.rug.sc.recommendalgo
 
+import java.util.ArrayList
+import scala.collection.JavaConversions._
+
 import breeze.linalg._
 import org.apache.spark.{HashPartitioner, SparkContext}
 import org.bson.Document
@@ -9,12 +12,14 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
+import org.apache.spark.storage._
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.mllib.linalg.{Vectors, DenseVector => SparkDV, Matrix => SparkM, SparseVector => SparkSV, Vector => SparkV}
 import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, SparseVector => BSV, Vector => BV, _}
 import breeze.linalg._
+import com.mongodb.spark.rdd.MongoRDD
 
 //import breeze.numerics._
 import scala.math._
@@ -84,32 +89,41 @@ object ratingCreater{
 
   }
 
-  def createTriplet (rddToConvert: RDD[Row]): RDD[(String, String, String)] = {
+  def createTriplet (rddToConvert: RDD[Document]): RDD[(String, String, String)] = {
     val ratings = rddToConvert.map { obj =>
-      (obj.getAs[String]("user"),
-        obj.getAs[String]("song"),
-        obj.getAs[String]("count"))
+      (obj.getString("user"),
+        obj.getString("song"),
+        obj.getString("count"))
     }
     ratings
   }
 }
 
 object predictor{
-  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10) {
+  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10): Array[(String, Double, DenseVector[Double])] = {
     // fully normalize artist_factors, so can compare with only the dot product
+    println("===item factor length: " + artist_factors.count())
 
-    artist_factors.map { obj =>
+    val targetVector = artist_factors.lookup(artistid).head
+    val topRecommended = artist_factors.map { obj =>
+      val dotProduct = (obj._2 - targetVector) dot targetVector
+      (obj._1, dotProduct * dotProduct, obj._2)
+    }.sortBy(_._2, true).collect()
 
+//    val topRecommended = artist_factors.map { obj =>
+//      val dotProduct = normalize(obj._2) dot normalize(targetVector)
+//      (obj._1, dotProduct, obj._2)
+//    }.sortBy(_._2, false).collect()
 
+    println(artistid)
+    println(targetVector)
+    println(normalize(targetVector))
+
+    topRecommended.slice(0, 100).foreach{ obj =>
+      println(obj)
     }
-    norm.scalarNorm_Double(artist_factors)
-    normalize.normalizeDoubleImpl
-      norms = numpy.linalg.norm(artist_factors, axis =-1)
-    self.factors = artist_factors / norms[:    , numpy.newaxis    ]
 
-    scores = self.factors.dot(self.factors[artistid])
-    best = numpy.argpartition(scores, -N)[- N:    ]
-    return sorted(zip(best, scores[best]), key = lambda x: - x[1 ] )
+    return topRecommended
   }
 }
 
@@ -126,8 +140,9 @@ class Recommend {
 
   }
 
-  def train(sc: SparkContext, myRdd: RDD[Row]): Unit = {
-
+  def train(sc: SparkContext, myRdd: RDD[Document]): RDD[(String, DenseVector[Double])] = {
+    myRdd.repartition(600)
+    myRdd.persist(StorageLevel.MEMORY_ONLY)
     //loads ratings from file
     val ratings = ratingCreater.createTriplet(myRdd)
 //    val ratings = sc.textFile("hdfs://cshadoop1.utdallas.edu//user/bxm142230/input/ratings.dat").map(l => (l.split("::")(0),l.split("::")(1),l.split("::")(2)))
@@ -148,26 +163,26 @@ class Recommend {
     val k = 5
 
     //create item latent vectors
-    val itemMatrix = items.map(x => (x, DenseVector.zeros[Double](k)))
+    val itemMatrix = items.map(x => (x, DenseVector.zeros[Double](k))).persist(StorageLevel.MEMORY_ONLY)
     //Initialize the values to 0.5
     // generated a latent vector for each item using movie id as key Array((movie_id,densevector)) e.g (2,DenseVector(0.5, 0.5, 0.5, 0.5, 0.5)
-    var myitemMatrix = itemMatrix.map(x => (x._1, x._2(0 to k - 1) := 0.5)).partitionBy(new HashPartitioner(10)).persist
+    var myitemMatrix = itemMatrix.map(x => (x._1, x._2(0 to k - 1) := 0.5)).partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
 
     //create user latent vectors
-    val userMatrix = users.map(x => (x, DenseVector.zeros[Double](k)))
+    val userMatrix = users.map(x => (x, DenseVector.zeros[Double](k))).persist(StorageLevel.MEMORY_ONLY)
     //Initialize the values to 0.5
     // generate latent vector for each user using user id as key Array((userid,densevector)) e.g (2,DenseVector(0.5, 0.5, 0.5, 0.5, 0.5)
-    var myuserMatrix = userMatrix.map(x => (x._1, x._2(0 to k - 1) := 0.5)).partitionBy(new HashPartitioner(10)).persist
+    var myuserMatrix = userMatrix.map(x => (x._1, x._2(0 to k - 1) := 0.5)).partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
 
     // group rating by items. Elements of type org.apache.spark.rdd.RDD[(String, (String, String))] (itemid,(userid,rating)) e.g  (1,(2,3))
-    val ratingByItem = ratings.map(x => (x._2, (x._1, x._3)))
+    val ratingByItem = ratings.map(x => (x._2, (x._1, x._3))).persist(StorageLevel.MEMORY_ONLY)
 
     // group rating by user.  Elements of type org.apache.spark.rdd.RDD[(String, (String, String))] (userid,(item,rating)) e.g  (1,(3,5))
-    val ratingByUser = ratings.map(x => (x._1, (x._2, x._3)))
+    val ratingByUser = ratings.map(x => (x._1, (x._2, x._3))).persist(StorageLevel.MEMORY_ONLY)
 
 
     var i = 0
-    for (i <- 1 to 10) {
+    for (i <- 1 to 1) {
       // regularization factor which is lambda.
       val regfactor = 1.0
       val regMatrix = DenseMatrix.zeros[Double](k, k) //generate an diagonal matrix with dimension k by k
@@ -178,7 +193,7 @@ class Recommend {
       regMatrix(3, ::) := DenseVector(0, 0, 0, regfactor, 0).t
       regMatrix(4, ::) := DenseVector(0, 0, 0, 0, regfactor).t
 
-      var movieJoinedData = myitemMatrix.join(ratingByItem)
+      var movieJoinedData = myitemMatrix.join(ratingByItem).persist(StorageLevel.MEMORY_ONLY)
       var tempUserMatrixRDD = movieJoinedData.map(q => {
         var movie = q._1
         var (user, rating) = q._2._2
@@ -187,7 +202,7 @@ class Recommend {
         var tempDenseMatrix = tempDenseVector * tempTransposeVector
         (user, tempDenseMatrix)
       }
-      ).reduceByKey(_ + _).map(q => (q._1, inv(q._2 + regMatrix)))
+      ).reduceByKey(_ + _).map(q => (q._1, inv(q._2 + regMatrix))).persist(StorageLevel.MEMORY_ONLY)
 
       var tempUserVectorRDD = movieJoinedData.map(q => {
         var movie = q._1
@@ -197,12 +212,12 @@ class Recommend {
         var secondTempVector = tempDenseVector :* rating.toDouble
         (user, secondTempVector)
       }
-      ).reduceByKey(_ + _)
+      ).reduceByKey(_ + _).persist(StorageLevel.MEMORY_ONLY)
 
-      var finalUserVectorRDD = tempUserMatrixRDD.join(tempUserVectorRDD).map(p => (p._1, p._2._1 * p._2._2))
-      myuserMatrix = finalUserVectorRDD.partitionBy(new HashPartitioner(10)).persist
+      var finalUserVectorRDD = tempUserMatrixRDD.join(tempUserVectorRDD).map(p => (p._1, p._2._1 * p._2._2)).persist(StorageLevel.MEMORY_ONLY)
+      myuserMatrix = finalUserVectorRDD.partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
 
-      var userJoinedData = myuserMatrix.join(ratingByUser)
+      var userJoinedData = myuserMatrix.join(ratingByUser).persist(StorageLevel.MEMORY_ONLY)
       var tempMovieMatrixRDD = userJoinedData.map(q => {
         var tempUser = q._1
         var (movie, rating) = q._2._2
@@ -211,7 +226,7 @@ class Recommend {
         var tempDenseMatrix = tempDenseVector * tempTransposeVector
         (movie, tempDenseMatrix)
       }
-      ).reduceByKey(_ + _).map(q => (q._1, inv(q._2 + regMatrix)))
+      ).reduceByKey(_ + _).map(q => (q._1, inv(q._2 + regMatrix))).persist(StorageLevel.MEMORY_ONLY)
 
       var tempMovieVectorRDD = userJoinedData.map(q => {
         var tempUser = q._1
@@ -221,10 +236,10 @@ class Recommend {
         var secondTempVector = tempDenseVector :* rating.toDouble
         (movie, secondTempVector)
       }
-      ).reduceByKey(_ + _)
+      ).reduceByKey(_ + _).persist(StorageLevel.MEMORY_ONLY)
 
-      var finalMovieVectorRDD = tempMovieMatrixRDD.join(tempMovieVectorRDD).map(p => (p._1, p._2._1 * p._2._2))
-      myitemMatrix = finalMovieVectorRDD.partitionBy(new HashPartitioner(10)).persist
+      var finalMovieVectorRDD = tempMovieMatrixRDD.join(tempMovieVectorRDD).map(p => (p._1, p._2._1 * p._2._2)).persist(StorageLevel.MEMORY_ONLY)
+      myitemMatrix = finalMovieVectorRDD.partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
 
     }
 
@@ -234,10 +249,10 @@ class Recommend {
     user 1759 and movieid 231.
     */
 
-
-    var pairsList = List(("f84f5b5a5c5d1d9fb4866f6488e0d2661b54c192", "SOZNUNA12A6701FCC7"),
-      ("f84f5b5a5c5d1d9fb4866f6488e0d2661b54c192", "SOXFIHR12AB017BAF8"),
-      ("f84f5b5a5c5d1d9fb4866f6488e0d2661b54c192", "SOWKQYL12AB0183B15"))
+    /* this helps check the approximation of SVD
+    var pairsList = List(("fffff9534445f481b6ab91c345500083d2ce4df1", "SOTJSCD12A8C14093B"),
+      ("ffffd330940a2a40754ec0383391f55c6129f48b", "SOCRVWC12A6310F991"),
+      ("ffffcfeb0c1b66bd212ea58d918c7dc62fb9c3a5", "SOWEJXA12A6701C574"))
     for ((user, movie) <- pairsList) {
       var userDenseVector = myuserMatrix.lookup(user)(0)
       var movieDenseVector = myitemMatrix.lookup(movie)(0)
@@ -247,12 +262,23 @@ class Recommend {
       println("Latent vector for movie " + movie + " : " + movieDenseVector)
       println("Predicted Rating by user " + user + " for movie " + movie + " : " + predictedRating)
     }
+    */
 
     ratings.top(3).foreach(obj => {
       println(obj._1 + ", " + obj._2 + ", " + obj._3)
     })
 
-    predictor.get_related(myitemMatrix, "SOWKQYL12AB0183B15")
+    return myitemMatrix
   }
 
+  def predictBySongId(songId: String, customRdd: MongoRDD[Document]): Unit = {
+
+    println(customRdd.count())
+
+    val temp =  customRdd.map{ doc =>
+      val tp = doc.get("vectors").asInstanceOf[ArrayList[Double]]
+      (doc.getString("_id"), BDV[Double](tp.get(0), tp.get(1), tp.get(2), tp.get(3), tp.get(4)))
+    }
+    val mostSimilarSongs = predictor.get_related(temp, songId)
+  }
 }
