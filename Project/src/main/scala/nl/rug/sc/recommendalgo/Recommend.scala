@@ -106,15 +106,15 @@ object predictor{
     println("===item factor length: " + artist_factors.count())
 
     val targetVector = artist_factors.lookup(artistid).head
-//    val topRecommended = artist_factors.map { obj =>
-//      val dotProduct = (obj._2 - targetVector) dot targetVector
-//      (obj._1, dotProduct * dotProduct, obj._2)
-//    }.sortBy(_._2, true).collect()
-
     val topRecommended = artist_factors.map { obj =>
-      val dotProduct = normalize(obj._2) dot normalize(targetVector)
-      (obj._1, dotProduct, obj._2)
-    }.sortBy(_._2, false).collect().slice(0, 100)
+      val dotProduct = (targetVector - obj._2)
+      (obj._1, dotProduct dot dotProduct, obj._2)
+    }.sortBy(_._2, true).collect().slice(0, 100)
+
+//    val topRecommended = artist_factors.map { obj =>
+//      val dotProduct = normalize(obj._2) dot normalize(targetVector)
+//      (obj._1, dotProduct, obj._2)
+//    }.sortBy(_._2, false).collect().slice(0, 100)
 
     println(artistid)
     println(targetVector)
@@ -264,7 +264,7 @@ class Recommend {
 
     }
 
-    /* this helps check the approximation of SVD */
+    /* this helps check the approximation of SVD
     var pairsList = List(("fffff67d54a40927c93d03bd6c816b034b59f087", "SOEYEOG12A6D4FD103"),
       ("ffffdc274ca76d154b4e56b2dbc82ff538c93c0b", "SOXIGHW12A6D4F7245"),
       ("fffe00b418e708c7003ff284586248f264c04c17", "SORCOGI12A6310DB7F"))
@@ -286,7 +286,7 @@ class Recommend {
     return myitemMatrix
   }
 
-  def predictBySongId(songId: String, customRdd: MongoRDD[Document], k: Int): Unit = {
+  def predictBySongId(songId: String, customRdd: MongoRDD[Document], k: Int): Array[(String, Double, DenseVector[Double])] = {
 
     println(customRdd.count())
 
@@ -299,6 +299,7 @@ class Recommend {
       (doc.getString("_id"), denseVec)
     }
     val mostSimilarSongs = predictor.get_related(temp, songId)
+    return mostSimilarSongs
   }
-   return mostSimilarSongs
+
 }
