@@ -16,7 +16,8 @@ libraryDependencies ++= List(
   "org.mongodb.spark" %% "mongo-spark-connector" % sparkVersion, //mongo connector
   "org.apache.spark" %% "spark-graphx"    % sparkVersion,  // Graph library
   "org.apache.spark" % "spark-streaming-kafka-0-10_2.11" % sparkVersion, //Kafka connector
-  "com.typesafe" % "config" % "1.3.2"
+  "com.typesafe" % "config" % "1.3.2",
+  "org.scalaj" % "scalaj-http_2.11" % "2.3.0"
 )
 
 libraryDependencies  ++= Seq(
