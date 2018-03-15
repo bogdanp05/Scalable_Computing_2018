@@ -26,10 +26,12 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    example.randomSample(0.01)
 
     /* run this to get training results */
-    example.fmTrainingExample()
+//    example.fmTrainingExample()
 
 //    example.predictExample("SOSIWOT12AB018E68B")
 
+
+    example.spotifyToken()
 
 //    val futureCons = Future{
 //      example.kafkaConsumer()
