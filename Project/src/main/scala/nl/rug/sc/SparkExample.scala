@@ -296,7 +296,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     printContinueMessage()
   }
 
-  def fmTrainingExample():Unit = {
+  def fmTrainingExample(k: Int):Unit = {
     val readConfig = ReadConfig(Map("database" -> "music_data2", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataSet = MongoSpark.load(sparkContext, readConfig)
     val myRdd: RDD[Document] = dataSet.rdd
@@ -307,7 +307,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     println("=================================")
     println()
 
-    val model = recommender.train(sparkContext, myRdd)
+    val model = recommender.train(sparkContext, myRdd, k)
     val toSave = model.map{ strDenVec =>
       //      new Document("_id", strDenVec._1).append("vectors", strDenVec._2.toArray.toList.asJava)
       Row(strDenVec._1, strDenVec._2.toArray)
@@ -322,12 +322,12 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     printContinueMessage()
   }
 
-  def predictExample(songId: String): Unit = {
+  def predictExample(songId: String, k: Int): Unit = {
 
     val readConfig = ReadConfig(Map("collection" -> "results", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val customRdd = MongoSpark.load(sparkContext, readConfig)
 
-    recommender.predictBySongId(songId, customRdd)
+    recommender.predictBySongId(songId, customRdd, k)
   }
 
   private def printContinueMessage(): Unit = {

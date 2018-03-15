@@ -140,7 +140,7 @@ class Recommend {
 
   }
 
-  def train(sc: SparkContext, myRdd: RDD[Document]): RDD[(String, DenseVector[Double])] = {
+  def train(sc: SparkContext, myRdd: RDD[Document], k: Int): RDD[(String, DenseVector[Double])] = {
     myRdd.repartition(600)
     myRdd.persist(StorageLevel.MEMORY_ONLY)
     //loads ratings from file
@@ -159,8 +159,6 @@ class Recommend {
     // get distinct user
     val users = ratings.map(x => x._1).distinct
 
-    // latent factor
-    val k = 5
 
     //create item latent vectors
     val itemMatrix = items.map(x => (x, DenseVector.zeros[Double](k))).persist(StorageLevel.MEMORY_ONLY)
@@ -182,16 +180,20 @@ class Recommend {
 
 
     var i = 0
-    for (i <- 1 to 1) {
+    for (i <- 1 to 10) {
       // regularization factor which is lambda.
       val regfactor = 1.0
       val regMatrix = DenseMatrix.zeros[Double](k, k) //generate an diagonal matrix with dimension k by k
       //filling in the diagonal values for the reqularization matrix.
-      regMatrix(0, ::) := DenseVector(regfactor, 0, 0, 0, 0).t
-      regMatrix(1, ::) := DenseVector(0, regfactor, 0, 0, 0).t
-      regMatrix(2, ::) := DenseVector(0, 0, regfactor, 0, 0).t
-      regMatrix(3, ::) := DenseVector(0, 0, 0, regfactor, 0).t
-      regMatrix(4, ::) := DenseVector(0, 0, 0, 0, regfactor).t
+//      regMatrix(0, ::) := DenseVector(regfactor, 0, 0, 0, 0).t
+//      regMatrix(1, ::) := DenseVector(0, regfactor, 0, 0, 0).t
+//      regMatrix(2, ::) := DenseVector(0, 0, regfactor, 0, 0).t
+//      regMatrix(3, ::) := DenseVector(0, 0, 0, regfactor, 0).t
+//      regMatrix(4, ::) := DenseVector(0, 0, 0, 0, regfactor).t
+
+      for (j <- 0 to k - 1){
+        regMatrix(j, j) = regfactor
+      }
 
       var songJoinedData = myitemMatrix.join(ratingByItem).persist(StorageLevel.MEMORY_ONLY)
       var tempUserMatrixRDD = songJoinedData.map(q => {
@@ -243,10 +245,10 @@ class Recommend {
 
     }
 
-    /* this helps check the approximation of SVD
-    var pairsList = List(("fffff9534445f481b6ab91c345500083d2ce4df1", "SOTJSCD12A8C14093B"),
-      ("ffffd330940a2a40754ec0383391f55c6129f48b", "SOCRVWC12A6310F991"),
-      ("ffffcfeb0c1b66bd212ea58d918c7dc62fb9c3a5", "SOWEJXA12A6701C574"))
+    /* this helps check the approximation of SVD */
+    var pairsList = List(("fffff67d54a40927c93d03bd6c816b034b59f087", "SOEYEOG12A6D4FD103"),
+      ("ffffdc274ca76d154b4e56b2dbc82ff538c93c0b", "SOXIGHW12A6D4F7245"),
+      ("fffe00b418e708c7003ff284586248f264c04c17", "SORCOGI12A6310DB7F"))
     for ((user, song) <- pairsList) {
       var userDenseVector = myuserMatrix.lookup(user)(0)
       var songDenseVector = myitemMatrix.lookup(song)(0)
@@ -256,7 +258,7 @@ class Recommend {
       println("Latent vector for song " + song + " : " + songDenseVector)
       println("Predicted Rating by user " + user + " for song " + song + " : " + predictedRating)
     }
-    */
+//    */
 
     ratings.top(3).foreach(obj => {
       println(obj._1 + ", " + obj._2 + ", " + obj._3)
@@ -265,13 +267,17 @@ class Recommend {
     return myitemMatrix
   }
 
-  def predictBySongId(songId: String, customRdd: MongoRDD[Document]): Unit = {
+  def predictBySongId(songId: String, customRdd: MongoRDD[Document], k: Int): Unit = {
 
     println(customRdd.count())
 
     val temp =  customRdd.map{ doc =>
       val tp = doc.get("vectors").asInstanceOf[ArrayList[Double]]
-      (doc.getString("_id"), BDV[Double](tp.get(0), tp.get(1), tp.get(2), tp.get(3), tp.get(4)))
+      val denseVec = BDV.zeros[Double](k)
+      for (j <- 0 to k - 1){
+        denseVec(j) = tp.get(j)
+      }
+      (doc.getString("_id"), denseVec)
     }
     val mostSimilarSongs = predictor.get_related(temp, songId)
   }
