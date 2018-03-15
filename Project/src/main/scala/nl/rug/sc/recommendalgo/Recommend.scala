@@ -1,6 +1,7 @@
 package nl.rug.sc.recommendalgo
 
 import java.util.ArrayList
+import scala.collection.JavaConverters._
 
 import scala.collection.JavaConversions._
 import breeze.linalg._
@@ -101,19 +102,19 @@ object ratingCreater{
 }
 
 object predictor{
-  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10): Array[(String, Double, DenseVector[Double])] = {
+  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10): Array[(String, Double, Array[Double])] = {
     // fully normalize artist_factors, so can compare with only the dot product
     println("===item factor length: " + artist_factors.count())
 
     val targetVector = artist_factors.lookup(artistid).head
     val topRecommended = artist_factors.map { obj =>
       val dotProduct = (targetVector - obj._2)
-      (obj._1, dotProduct dot dotProduct, obj._2)
+      (obj._1, dotProduct dot dotProduct, obj._2.toArray)
     }.sortBy(_._2, true).collect().slice(0, 100)
 
 //    val topRecommended = artist_factors.map { obj =>
 //      val dotProduct = normalize(obj._2) dot normalize(targetVector)
-//      (obj._1, dotProduct, obj._2)
+//      (obj._1, dotProduct, obj._2.toArray)
 //    }.sortBy(_._2, false).collect().slice(0, 100)
 
     println(artistid)
@@ -286,7 +287,7 @@ class Recommend {
     return myitemMatrix
   }
 
-  def predictBySongId(songId: String, customRdd: MongoRDD[Document], k: Int): Array[(String, Double, DenseVector[Double])] = {
+  def predictBySongId(songId: String, customRdd: MongoRDD[Document], k: Int): Array[(String, Double, Array[Double])] = {
 
     println(customRdd.count())
 

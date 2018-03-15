@@ -19,7 +19,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 
 import scala.collection.JavaConverters._
 import java.util
-import java.util.Properties
+import java.util.{ArrayList, Properties}
 
 import com.mongodb.spark.rdd.MongoRDD
 import com.typesafe.config.ConfigFactory
@@ -30,6 +30,7 @@ import org.spark_project.guava.io.BaseEncoding
 
 import scala.io.Source
 import scala.util.parsing.json.JSON
+import scalaj.http.{Http, HttpOptions}
 
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
@@ -352,27 +353,33 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def predictExample(songId: String, k: Int): Unit = {
+    val readConfigArchived = ReadConfig(Map("database" -> "music_data2", "collection" -> "historyRequests", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val historyRequests = MongoSpark.load(sparkContext, readConfigArchived).toDF()
+    val requestedCandidates = historyRequests.filter(historyRequests("_id").equalTo(songId))
+    val count = requestedCandidates.count()
+    println("========"+count)
+    if(count > 0){
+      val histObj = requestedCandidates.first()
+      println("Request song ID: " + histObj.getString(0))
+      for (i <- 0 until histObj.getList(1).size()-1){
+        println(histObj.getList(1).get(i))
+      }
 
-    val readConfig = ReadConfig(Map("collection" -> "results", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
-    val customRdd = MongoSpark.load(sparkContext, readConfig)
+    }else {
+      val readConfig = ReadConfig(Map("collection" -> "results", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+      val customRdd = MongoSpark.load(sparkContext, readConfig)
 
-    //    val readConfig = ReadConfig(Map("database" -> "music_data2", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
-    //    val dataSet = MongoSpark.load(sparkContext, readConfig)
-    //    val myRdd: RDD[Document] = dataSet.rdd
-    //    recommender.test(myRdd)
+      val results = recommender.predictBySongId(songId, customRdd, k).map { obj =>
+        new Document("songId", obj._1).append("distance", obj._2).append("vectors", obj._3.toList.asJava)
+      }.toList.asJava
 
-    val results = recommender.predictBySongId(songId, customRdd, k)
-    val toSave = sparkContext.parallelize(results).map{obj =>
-      Row(obj._1, obj._2, obj._3)
+      val arr = Array(songId)
+      val toSave = sparkContext.parallelize(arr).map { obj =>
+        new Document("_id", obj).append("candidateSongs", results)
+      }
+      val writeConfig = WriteConfig(Map("database" -> "music_data2", "collection" -> "historyRequests", "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
+      MongoSpark.save(toSave, writeConfig)
     }
-
-    val df = sparkSession.sqlContext.createDataFrame(toSave, StructType(
-      StructField("_id", StringType, false)::
-        StructField("distance", DoubleType, false)::
-        StructField("vectors", ArrayType(DoubleType, false), false)::Nil)
-    )
-    MongoSpark.write(df).option("database", "music_data2").option("collection", "historyRequests").save()
-
   }
   private def printContinueMessage(): Unit = {
     println("Check your Spark web UI at http://localhost:4040 and press Enter to continue. [Press Backspace and Enter again if pressing enter once does not work]")
