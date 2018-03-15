@@ -286,11 +286,13 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
 
   def randomSample(percent:Double): Unit = {
     val readConfig = ReadConfig(Map("database" -> "music_data", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
-    val dataSet = MongoSpark.load(sparkContext, readConfig)
+    val dataSet = MongoSpark.load(sparkContext, readConfig).toDF()
     val sampledDS = dataSet.sample(false, percent)
 
-    val writeConfig = WriteConfig(Map("database" -> "music_data2", "collection" -> "triplets", "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
-    MongoSpark.save(sampledDS, writeConfig)
+//    val writeConfig = WriteConfig(Map("database" -> "music_data2", "collection" -> "triplets", "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
+//    MongoSpark.save(sampledDS, writeConfig)
+    MongoSpark.write(sampledDS).option("database", "music_data2").option("collection", "triplets")
+      .option("writeConcern.w", "majority").mode("overwrite").save()
     printContinueMessage()
   }
 
