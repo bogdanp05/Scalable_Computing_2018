@@ -356,24 +356,31 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     val readConfig = ReadConfig(Map("collection" -> "results", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val customRdd = MongoSpark.load(sparkContext, readConfig)
 
-//    val readConfig = ReadConfig(Map("database" -> "music_data2", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
-//    val dataSet = MongoSpark.load(sparkContext, readConfig)
-//    val myRdd: RDD[Document] = dataSet.rdd
-//    recommender.test(myRdd)
+    //    val readConfig = ReadConfig(Map("database" -> "music_data2", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    //    val dataSet = MongoSpark.load(sparkContext, readConfig)
+    //    val myRdd: RDD[Document] = dataSet.rdd
+    //    recommender.test(myRdd)
 
-    recommender.predictBySongId(songId, customRdd, k)
+    val results = recommender.predictBySongId(songId, customRdd, k)
+    val toSave = sparkContext.parallelize(results).map{obj =>
+      Row(obj._1, obj._2, obj._3)
+    }
+
+    val df = sparkSession.sqlContext.createDataFrame(toSave, StructType(
+      StructField("_id", StringType, false)::
+        StructField("distance", DoubleType, false)::
+        StructField("vectors", ArrayType(DoubleType, false), false)::Nil)
+    )
+    MongoSpark.write(df).option("database", "music_data2").option("collection", "historyRequests").save()
+
   }
-
   private def printContinueMessage(): Unit = {
     println("Check your Spark web UI at http://localhost:4040 and press Enter to continue. [Press Backspace and Enter again if pressing enter once does not work]")
     scala.io.StdIn.readLine()
     println("Continuing, please wait....")
   }
 
-  def predictResults():Unit = {
-   recommender.predictBySongId()
 
-  }
 }
 
 
