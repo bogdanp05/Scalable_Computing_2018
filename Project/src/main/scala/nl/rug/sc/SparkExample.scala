@@ -39,6 +39,11 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   private val conf = ConfigFactory.load()
   private val kafka_server = conf.getString("spark-project.kafka.server")
   private val streaming_source = conf.getString("spark-project.kafka.source")
+  private val DB = conf.getString("spark-project.mongo.DB")
+  private val historyColl = conf.getString("spark-project.mongo.historyCollection")
+  private val resultsColl = conf.getString("spark-project.mongo.modelCollection")
+  private val tripletsColl = conf.getString("spark-project.mongo.dataCollection")
+
   private val TOPIC = "test"
   private val  props = new Properties()
   private val recommender = new Recommend()
@@ -315,19 +320,19 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def randomSample(percent:Double): Unit = {
-    val readConfig = ReadConfig(Map("database" -> "music_data", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataSet = MongoSpark.load(sparkContext, readConfig).toDF()
-    val sampledDS = dataSet.sample(false, percent)
+    val sampledDS = dataSet.sample(withReplacement = false, percent)
 
 //    val writeConfig = WriteConfig(Map("database" -> "music_data2", "collection" -> "triplets", "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
 //    MongoSpark.save(sampledDS, writeConfig)
-    MongoSpark.write(sampledDS).option("database", "music_data2").option("collection", "triplets")
+    MongoSpark.write(sampledDS).option("database", DB).option("collection", tripletsColl)
       .option("writeConcern.w", "majority").mode("overwrite").save()
     printContinueMessage()
   }
 
   def fmTrainingExample(k: Int):Unit = {
-    val readConfig = ReadConfig(Map("database" -> "music_data2", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataSet = MongoSpark.load(sparkContext, readConfig)
     val myRdd: RDD[Document] = dataSet.rdd
     //    val myRdd = MongoSpark.load(sparkSession.sparkContext)
@@ -347,16 +352,19 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
       StructField("_id", StringType, false)::
         StructField("vectors", ArrayType(DoubleType, false), false)::Nil)
     )
-    MongoSpark.write(df).option("database", "music_data2").option("collection", "results").mode("overwrite").save()
+    MongoSpark.write(df).option("database", DB).option("collection", resultsColl).mode("overwrite").save()
     //    MongoSpark.save(toSave)
     printContinueMessage()
   }
 
   def predictExample(songId: String, k: Int): Unit = {
-    val readConfigArchived = ReadConfig(Map("database" -> "music_data2", "collection" -> "historyRequests", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val readConfigArchived = ReadConfig(Map("database" -> DB, "collection" -> historyColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val historyRequests = MongoSpark.load(sparkContext, readConfigArchived).toDF()
+    println("-------------------" + historyRequests.head(1).isEmpty)
+
     val requestedCandidates = historyRequests.filter(historyRequests("_id").equalTo(songId))
     val count = requestedCandidates.count()
+
     println("========"+count)
     if(count > 0){
       val histObj = requestedCandidates.first()
@@ -366,7 +374,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
       }
 
     }else {
-      val readConfig = ReadConfig(Map("collection" -> "results", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+      val readConfig = ReadConfig(Map("collection" -> resultsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
       val customRdd = MongoSpark.load(sparkContext, readConfig)
 
       val results = recommender.predictBySongId(songId, customRdd, k).map { obj =>
@@ -377,7 +385,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
       val toSave = sparkContext.parallelize(arr).map { obj =>
         new Document("_id", obj).append("candidateSongs", results)
       }
-      val writeConfig = WriteConfig(Map("database" -> "music_data2", "collection" -> "historyRequests", "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
+      val writeConfig = WriteConfig(Map("database" -> DB, "collection" -> historyColl, "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
       MongoSpark.save(toSave, writeConfig)
     }
   }

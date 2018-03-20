@@ -200,17 +200,11 @@ class Recommend {
 
     var i = 0
 
-    for (i <- 1 to 10) {
+    for (i <- 1 to 3) {
       // regularization factor which is lambda.
       val regfactor = 1.0
+      //Creating the Unit Matrix I_k
       val regMatrix = DenseMatrix.zeros[Double](k, k) //generate an diagonal matrix with dimension k by k
-      //filling in the diagonal values for the reqularization matrix.
-//      regMatrix(0, ::) := DenseVector(regfactor, 0, 0, 0, 0).t
-//      regMatrix(1, ::) := DenseVector(0, regfactor, 0, 0, 0).t
-//      regMatrix(2, ::) := DenseVector(0, 0, regfactor, 0, 0).t
-//      regMatrix(3, ::) := DenseVector(0, 0, 0, regfactor, 0).t
-//      regMatrix(4, ::) := DenseVector(0, 0, 0, 0, regfactor).t
-
       for (j <- 0 to k - 1){
         regMatrix(j, j) = regfactor
       }
