@@ -349,8 +349,8 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     }
 
     val df = sparkSession.sqlContext.createDataFrame(toSave, StructType(
-      StructField("_id", StringType, false)::
-        StructField("vectors", ArrayType(DoubleType, false), false)::Nil)
+      StructField("_id", StringType, nullable = false)::
+        StructField("vectors", ArrayType(DoubleType, containsNull = false), nullable = false)::Nil)
     )
     MongoSpark.write(df).option("database", DB).option("collection", resultsColl).mode("overwrite").save()
     //    MongoSpark.save(toSave)
@@ -360,10 +360,9 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   def predictExample(songId: String, k: Int): Unit = {
     val readConfigArchived = ReadConfig(Map("database" -> DB, "collection" -> historyColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val historyRequests = MongoSpark.load(sparkContext, readConfigArchived).toDF()
-    println("-------------------" + historyRequests.head(1).isEmpty)
 
-    val requestedCandidates = historyRequests.filter(historyRequests("_id").equalTo(songId))
-    val count = requestedCandidates.count()
+    val requestedCandidates = if (historyRequests.head(1).isEmpty) null else historyRequests.filter(historyRequests("_id").equalTo(songId))
+    val count = if (requestedCandidates == null) 0 else requestedCandidates.count()
 
     println("========"+count)
     if(count > 0){
@@ -388,7 +387,10 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
       val writeConfig = WriteConfig(Map("database" -> DB, "collection" -> historyColl, "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
       MongoSpark.save(toSave, writeConfig)
     }
+
   }
+
+
   private def printContinueMessage(): Unit = {
     println("Check your Spark web UI at http://localhost:4040 and press Enter to continue. [Press Backspace and Enter again if pressing enter once does not work]")
     scala.io.StdIn.readLine()

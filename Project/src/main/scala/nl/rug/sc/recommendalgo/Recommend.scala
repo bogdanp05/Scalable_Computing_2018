@@ -110,7 +110,7 @@ object predictor{
     val topRecommended = artist_factors.map { obj =>
       val dotProduct = (targetVector - obj._2)
       (obj._1, dotProduct dot dotProduct, obj._2.toArray)
-    }.sortBy(_._2, true).collect().slice(0, 100)
+    }.sortBy(_._2, ascending = true).collect().slice(0, 100)
 
 //    val topRecommended = artist_factors.map { obj =>
 //      val dotProduct = normalize(obj._2) dot normalize(targetVector)
