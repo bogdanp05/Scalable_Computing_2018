@@ -45,10 +45,10 @@ object SparkSubmitMain extends App with SparkTrait {
 
   override def pathToCsv = getClass.getResource("/csv/train_triplets.csv").getPath
 
-  val master = "local[2]"
+//  val master = "local[2]"
 
-  val conf = new SparkConf().setMaster(master)
-  override def streamingContext: StreamingContext= new StreamingContext(conf, Seconds(1))
+//  val conf = new SparkConf().setMaster(master)
+  override def streamingContext: StreamingContext= new StreamingContext(sparkSession.sparkContext, Seconds(1))
 
   run() // Run is defined in the tait SparkBootcamp
 }
