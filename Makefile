@@ -21,6 +21,11 @@ kafka_create:
 kafka_topic:
 	@docker exec kafka /opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic test
 
-#kafka: kafka_create kafka_topic
+cluster_master:
+	@docker run -d --rm --name spark-master -p 4040:4040 -p 8080-8081:8080-8081 -p 7077:7077 briansetz/docker-spark:2.2.1 spark/sbin/start-master.sh
 
+cluster_slave:
+	$(eval MASTER_IP=$(shell docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' spark-master))
+	@echo ${MASTER_IP}
+	@docker run -d --rm --name spark-slave briansetz/docker-spark:2.2.1 spark/sbin/start-slave.sh spark://${MASTER_IP}:7077
 
