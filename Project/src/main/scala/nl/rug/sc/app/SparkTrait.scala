@@ -2,7 +2,7 @@ package nl.rug.sc.app
 
 
 import nl.rug.sc.SparkExample
-import nl.rug.sc.app.SparkLocalMain.sparkSession
+//import nl.rug.sc.app.SparkLocalMain.sparkSession
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.StreamingContext
 
@@ -29,7 +29,7 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 
 //    example.fmTrainingExample(5)
 
-    example.predictExample("SOUSRAI12A58A7DF82", 5)
+      example.predictExample("SOUSRAI12A58A7DF82", 5)
 
 //    example.spotifyToken()
 
