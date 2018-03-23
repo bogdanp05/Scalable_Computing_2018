@@ -16,7 +16,8 @@ libraryDependencies ++= List(
   "org.mongodb.spark" %% "mongo-spark-connector" % sparkVersion, //mongo connector
   "org.apache.spark" %% "spark-graphx"    % sparkVersion,  // Graph library
   "org.apache.spark" % "spark-streaming-kafka-0-10_2.11" % sparkVersion, //Kafka connector
-  "com.typesafe" % "config" % "1.3.2"
+  "com.typesafe" % "config" % "1.3.2",
+  "org.scalaj" % "scalaj-http_2.11" % "2.3.0"
 )
 
 libraryDependencies  ++= Seq(
@@ -33,4 +34,10 @@ libraryDependencies  ++= Seq(
   // It depends on LGPL code
   "org.scalanlp" %% "breeze-viz" % "0.13.2"
 ) // math lib for matrix factorization
+
+
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x => MergeStrategy.first
+}
 

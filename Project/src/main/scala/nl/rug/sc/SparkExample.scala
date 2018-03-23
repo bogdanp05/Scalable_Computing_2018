@@ -19,14 +19,18 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 
 import scala.collection.JavaConverters._
 import java.util
-import java.util.Properties
+import java.util.{ArrayList, Properties}
 
 import com.mongodb.spark.rdd.MongoRDD
 import com.typesafe.config.ConfigFactory
-import nl.rug.sc.recommendalgo.Recommend
+import nl.rug.sc.recommendalgo.{Recommend, predictor}
 import nl.rug.sc.misc._
+import org.apache.commons.io.Charsets
+import org.spark_project.guava.io.BaseEncoding
 
 import scala.io.Source
+import scala.util.parsing.json.JSON
+import scalaj.http.{Http, HttpOptions}
 
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
@@ -35,6 +39,11 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   private val conf = ConfigFactory.load()
   private val kafka_server = conf.getString("spark-project.kafka.server")
   private val streaming_source = conf.getString("spark-project.kafka.source")
+  private val DB = conf.getString("spark-project.mongo.DB")
+  private val historyColl = conf.getString("spark-project.mongo.historyCollection")
+  private val resultsColl = conf.getString("spark-project.mongo.modelCollection")
+  private val tripletsColl = conf.getString("spark-project.mongo.dataCollection")
+
   private val TOPIC = "test"
   private val  props = new Properties()
   private val recommender = new Recommend()
@@ -284,20 +293,46 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     }
   }
 
+  def spotifyToken(): Unit = {
+    val client_id = conf.getString("spark-project.spotify.client_id")
+    val client_secret = conf.getString("spark-project.spotify.client_secret")
+    val unencodedAuth = client_id + ':' + client_secret
+
+    val encoded_auth = BaseEncoding.base64().encode(unencodedAuth.getBytes(Charsets.UTF_8))
+    val result = Http("https://accounts.spotify.com/api/token\n")
+      .postData("grant_type=client_credentials")
+      .header("Content-Type", "application/x-www-form-urlencoded")
+      .header("Charset", "UTF-8")
+      .header("Authorization", "Basic " + encoded_auth)
+      .option(HttpOptions.readTimeout(10000)).asString
+    println("-------------")
+
+    if (result.code != 200){
+      println("Error getting the access token from Spotify")
+      return
+    }
+
+    println("ok")
+    val binResponse = JSON.parseFull(result.body)
+    val map = binResponse.get.asInstanceOf[Map[String, Any]]
+    val accessToken = map("access_token")
+    println(accessToken)
+  }
+
   def randomSample(percent:Double): Unit = {
-    val readConfig = ReadConfig(Map("database" -> "music_data", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataSet = MongoSpark.load(sparkContext, readConfig).toDF()
-    val sampledDS = dataSet.sample(false, percent)
+    val sampledDS = dataSet.sample(withReplacement = false, percent)
 
 //    val writeConfig = WriteConfig(Map("database" -> "music_data2", "collection" -> "triplets", "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
 //    MongoSpark.save(sampledDS, writeConfig)
-    MongoSpark.write(sampledDS).option("database", "music_data2").option("collection", "triplets")
+    MongoSpark.write(sampledDS).option("database", DB).option("collection", tripletsColl)
       .option("writeConcern.w", "majority").mode("overwrite").save()
     printContinueMessage()
   }
 
-  def fmTrainingExample():Unit = {
-    val readConfig = ReadConfig(Map("database" -> "music_data2", "collection" -> "triplets", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+  def fmTrainingExample(k: Int):Unit = {
+    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataSet = MongoSpark.load(sparkContext, readConfig)
     val myRdd: RDD[Document] = dataSet.rdd
     //    val myRdd = MongoSpark.load(sparkSession.sparkContext)
@@ -307,32 +342,62 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     println("=================================")
     println()
 
-    val model = recommender.train(sparkContext, myRdd)
+    val model = recommender.train(sparkContext, myRdd, k)
     val toSave = model.map{ strDenVec =>
       //      new Document("_id", strDenVec._1).append("vectors", strDenVec._2.toArray.toList.asJava)
       Row(strDenVec._1, strDenVec._2.toArray)
     }
 
     val df = sparkSession.sqlContext.createDataFrame(toSave, StructType(
-      StructField("_id", StringType, false)::
-        StructField("vectors", ArrayType(DoubleType, false), false)::Nil)
+      StructField("_id", StringType, nullable = false)::
+        StructField("vectors", ArrayType(DoubleType, containsNull = false), nullable = false)::Nil)
     )
-    MongoSpark.write(df).option("database", "music_data2").option("collection", "results").mode("overwrite").save()
+    MongoSpark.write(df).option("database", DB).option("collection", resultsColl).mode("overwrite").save()
     //    MongoSpark.save(toSave)
     printContinueMessage()
   }
 
-  def predictExample(songId: String): Unit = {
+  def predictExample(songId: String, k: Int): Unit = {
+    val readConfigArchived = ReadConfig(Map("database" -> DB, "collection" -> historyColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val historyRequests = MongoSpark.load(sparkContext, readConfigArchived).toDF()
 
-    val readConfig = ReadConfig(Map("collection" -> "results", "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
-    val customRdd = MongoSpark.load(sparkContext, readConfig)
+    val requestedCandidates = if (historyRequests.head(1).isEmpty) null else historyRequests.filter(historyRequests("_id").equalTo(songId))
+    val count = if (requestedCandidates == null) 0 else requestedCandidates.count()
 
-    recommender.predictBySongId(songId, customRdd)
+    println("========"+count)
+    if(count > 0){
+      val histObj = requestedCandidates.first()
+      println("Request song ID: " + histObj.getString(0))
+      for (i <- 0 until histObj.getList(1).size()-1){
+        println(histObj.getList(1).get(i))
+      }
+
+    }else {
+      val readConfig = ReadConfig(Map("collection" -> resultsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+      val customRdd = MongoSpark.load(sparkContext, readConfig)
+
+      val results = recommender.predictBySongId(songId, customRdd, k).map { obj =>
+        new Document("songId", obj._1).append("distance", obj._2).append("vectors", obj._3.toList.asJava)
+      }.toList.asJava
+
+      val arr = Array(songId)
+      val toSave = sparkContext.parallelize(arr).map { obj =>
+        new Document("_id", obj).append("candidateSongs", results)
+      }
+      val writeConfig = WriteConfig(Map("database" -> DB, "collection" -> historyColl, "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
+      MongoSpark.save(toSave, writeConfig)
+    }
+
   }
+
 
   private def printContinueMessage(): Unit = {
     println("Check your Spark web UI at http://localhost:4040 and press Enter to continue. [Press Backspace and Enter again if pressing enter once does not work]")
     scala.io.StdIn.readLine()
     println("Continuing, please wait....")
   }
+
+
 }
+
+

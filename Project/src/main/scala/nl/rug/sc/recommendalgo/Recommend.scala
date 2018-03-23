@@ -1,8 +1,9 @@
 package nl.rug.sc.recommendalgo
 
 import java.util.ArrayList
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
+import scala.collection.JavaConversions._
 import breeze.linalg._
 import org.apache.spark.{HashPartitioner, SparkContext}
 import org.bson.Document
@@ -19,6 +20,7 @@ import org.apache.spark.mllib.linalg.{Vectors, DenseVector => SparkDV, Matrix =>
 import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV, SparseVector => BSV, Vector => BV, _}
 import breeze.linalg._
+import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.rdd.MongoRDD
 
 //import breeze.numerics._
@@ -100,26 +102,26 @@ object ratingCreater{
 }
 
 object predictor{
-  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10): Array[(String, Double, DenseVector[Double])] = {
+  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10): Array[(String, Double, Array[Double])] = {
     // fully normalize artist_factors, so can compare with only the dot product
     println("===item factor length: " + artist_factors.count())
 
     val targetVector = artist_factors.lookup(artistid).head
-//    val topRecommended = artist_factors.map { obj =>
-//      val dotProduct = (obj._2 - targetVector) dot targetVector
-//      (obj._1, dotProduct * dotProduct, obj._2)
-//    }.sortBy(_._2, true).collect()
-
     val topRecommended = artist_factors.map { obj =>
-      val dotProduct = normalize(obj._2) dot normalize(targetVector)
-      (obj._1, dotProduct, obj._2)
-    }.sortBy(_._2, false).collect()
+      val dotProduct = (targetVector - obj._2)
+      (obj._1, dotProduct dot dotProduct, obj._2.toArray)
+    }.sortBy(_._2, ascending = true).collect().slice(0, 100)
+
+//    val topRecommended = artist_factors.map { obj =>
+//      val dotProduct = normalize(obj._2) dot normalize(targetVector)
+//      (obj._1, dotProduct, obj._2.toArray)
+//    }.sortBy(_._2, false).collect().slice(0, 100)
 
     println(artistid)
     println(targetVector)
     println(normalize(targetVector))
 
-    topRecommended.slice(0, 100).foreach{ obj =>
+    topRecommended.foreach{ obj =>
       println(obj)
     }
 
@@ -140,7 +142,24 @@ class Recommend {
 
   }
 
-  def train(sc: SparkContext, myRdd: RDD[Document]): RDD[(String, DenseVector[Double])] = {
+  def test(myRdd: RDD[Document]): Unit = {
+    val numPar = 10
+    val fraction = 1f/numPar
+    val weiArr = Array.fill[Double](numPar)(fraction)
+    val allpartitions = myRdd.randomSplit(weiArr)
+
+    val totalPlayCount = allpartitions.map{ singlePar =>
+      singlePar.map{ doc =>
+        doc.getString("count").toInt
+      }.reduce(_ + _)
+    }.sum
+
+    println(totalPlayCount)
+    println(totalPlayCount)
+  }
+
+
+  def train(sc: SparkContext, myRdd: RDD[Document], k: Int): RDD[(String, DenseVector[Double])] = {
     myRdd.repartition(600)
     myRdd.persist(StorageLevel.MEMORY_ONLY)
     //loads ratings from file
@@ -159,8 +178,6 @@ class Recommend {
     // get distinct user
     val users = ratings.map(x => x._1).distinct
 
-    // latent factor
-    val k = 5
 
     //create item latent vectors
     val itemMatrix = items.map(x => (x, DenseVector.zeros[Double](k))).persist(StorageLevel.MEMORY_ONLY)
@@ -182,16 +199,15 @@ class Recommend {
 
 
     var i = 0
-    for (i <- 1 to 1) {
+
+    for (i <- 1 to 3) {
       // regularization factor which is lambda.
       val regfactor = 1.0
+      //Creating the Unit Matrix I_k
       val regMatrix = DenseMatrix.zeros[Double](k, k) //generate an diagonal matrix with dimension k by k
-      //filling in the diagonal values for the reqularization matrix.
-      regMatrix(0, ::) := DenseVector(regfactor, 0, 0, 0, 0).t
-      regMatrix(1, ::) := DenseVector(0, regfactor, 0, 0, 0).t
-      regMatrix(2, ::) := DenseVector(0, 0, regfactor, 0, 0).t
-      regMatrix(3, ::) := DenseVector(0, 0, 0, regfactor, 0).t
-      regMatrix(4, ::) := DenseVector(0, 0, 0, 0, regfactor).t
+      for (j <- 0 to k - 1){
+        regMatrix(j, j) = regfactor
+      }
 
       var songJoinedData = myitemMatrix.join(ratingByItem).persist(StorageLevel.MEMORY_ONLY)
       var tempUserMatrixRDD = songJoinedData.map(q => {
@@ -244,9 +260,9 @@ class Recommend {
     }
 
     /* this helps check the approximation of SVD
-    var pairsList = List(("fffff9534445f481b6ab91c345500083d2ce4df1", "SOTJSCD12A8C14093B"),
-      ("ffffd330940a2a40754ec0383391f55c6129f48b", "SOCRVWC12A6310F991"),
-      ("ffffcfeb0c1b66bd212ea58d918c7dc62fb9c3a5", "SOWEJXA12A6701C574"))
+    var pairsList = List(("fffff67d54a40927c93d03bd6c816b034b59f087", "SOEYEOG12A6D4FD103"),
+      ("ffffdc274ca76d154b4e56b2dbc82ff538c93c0b", "SOXIGHW12A6D4F7245"),
+      ("fffe00b418e708c7003ff284586248f264c04c17", "SORCOGI12A6310DB7F"))
     for ((user, song) <- pairsList) {
       var userDenseVector = myuserMatrix.lookup(user)(0)
       var songDenseVector = myitemMatrix.lookup(song)(0)
@@ -256,7 +272,7 @@ class Recommend {
       println("Latent vector for song " + song + " : " + songDenseVector)
       println("Predicted Rating by user " + user + " for song " + song + " : " + predictedRating)
     }
-    */
+//    */
 
     ratings.top(3).foreach(obj => {
       println(obj._1 + ", " + obj._2 + ", " + obj._3)
@@ -265,14 +281,20 @@ class Recommend {
     return myitemMatrix
   }
 
-  def predictBySongId(songId: String, customRdd: MongoRDD[Document]): Unit = {
+  def predictBySongId(songId: String, customRdd: MongoRDD[Document], k: Int): Array[(String, Double, Array[Double])] = {
 
     println(customRdd.count())
 
     val temp =  customRdd.map{ doc =>
       val tp = doc.get("vectors").asInstanceOf[ArrayList[Double]]
-      (doc.getString("_id"), BDV[Double](tp.get(0), tp.get(1), tp.get(2), tp.get(3), tp.get(4)))
+      val denseVec = BDV.zeros[Double](k)
+      for (j <- 0 to k - 1){
+        denseVec(j) = tp.get(j)
+      }
+      (doc.getString("_id"), denseVec)
     }
     val mostSimilarSongs = predictor.get_related(temp, songId)
+    return mostSimilarSongs
   }
+
 }
