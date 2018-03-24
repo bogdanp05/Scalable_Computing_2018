@@ -39,8 +39,8 @@ object SparkSubmitMain extends App with SparkTrait {
   override def sparkSession = SparkSession // Usually you only create one Spark Session in your application, but for demo purpose we recreate them
     .builder()
     .appName("spark-project")
-    .config("spark.mongodb.input.uri", "mongodb://mongo:27017/music_data2.triplets")
-    .config("spark.mongodb.output.uri", "mongodb://mongo:27017/music_data2.results")
+    .config("spark.mongodb.input.uri", "mongodb://172.19.0.2:27017/music_data2.triplets")
+    .config("spark.mongodb.output.uri", "mongodb://172.19.0.2:27017/music_data2.results")
     .getOrCreate()
 
   override def pathToCsv = getClass.getResource("/csv/train_triplets.csv").getPath

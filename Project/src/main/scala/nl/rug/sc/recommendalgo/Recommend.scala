@@ -102,11 +102,19 @@ object ratingCreater{
 }
 
 object predictor{
-  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10): Array[(String, Double, Array[Double])] = {
+  def get_related(artist_factors: RDD[(String, DenseVector[Double])], songId: String, N:Int = 10): Array[(String, Double, Array[Double])] = {
     // fully normalize artist_factors, so can compare with only the dot product
     println("===item factor length: " + artist_factors.count())
 
-    val targetVector = artist_factors.lookup(artistid).head
+    val matches = artist_factors.lookup(songId)
+    if (matches.isEmpty){
+      println("Song with id " + songId + " was not found")
+      val emptyResult = new Array[(String, Double, Array[Double])](1)
+      emptyResult.update(0, (songId, 0.0, Array(0.0)))
+      return emptyResult
+    }
+
+    val targetVector = matches.head
     val topRecommended = artist_factors.map { obj =>
       val dotProduct = (targetVector - obj._2)
       (obj._1, dotProduct dot dotProduct, obj._2.toArray)
@@ -117,7 +125,7 @@ object predictor{
 //      (obj._1, dotProduct, obj._2.toArray)
 //    }.sortBy(_._2, false).collect().slice(0, 100)
 
-    println(artistid)
+    println(songId)
     println(targetVector)
     println(normalize(targetVector))
 
