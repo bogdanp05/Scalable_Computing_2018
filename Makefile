@@ -38,5 +38,7 @@ assembly:
 deploy:
 	$(eval MASTER_IP=$(shell docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' spark-master))
 	@echo ${MASTER_IP}
-	${SPARK_HOME}/bin/spark-submit --class nl.rug.sc.app.SparkSubmitMain --deploy-mode client --master spark://${MASTER_IP}:7077 ./Project/target/scala-2.11/Project-assembly-0.1.jar
+	$(eval MONGO_IP=$(shell docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' mongoCluster))
+	@echo ${MONGO_IP}
+	${SPARK_HOME}/bin/spark-submit --class nl.rug.sc.app.SparkSubmitMain --deploy-mode client --master spark://${MASTER_IP}:7077 ./Project/target/scala-2.11/Project-assembly-0.1.jar ${MONGO_IP}
 
