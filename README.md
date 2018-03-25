@@ -12,9 +12,9 @@ Kafka:
 - Use "make kafka_topic" to create the topic "test".
 - In `/etc/hosts` on your pc, map "kafka" to the ip address of the docker continer (e.g. `172.17.0.3 kafka`)
 
-Local Cluster
-- Use 'make cluster_master' to create the master node
-- Use 'make cluster_slave' to create a worker node
+
+Local Cluster:
+- Use 'make compose' to set up the mongo, spark-master and spark-slave containers with the docker-compose file
 - Use 'make assembly' to package the app into a jar file
 - Use 'make deploy' to deploy the jar on the local cluster
 
