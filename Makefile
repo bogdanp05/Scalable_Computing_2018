@@ -29,3 +29,10 @@ cluster_slave:
 	@echo ${MASTER_IP}
 	@docker run -d --rm --name spark-slave briansetz/docker-spark:2.2.1 spark/sbin/start-slave.sh spark://${MASTER_IP}:7077
 
+assembly:
+	@(cd ./Project && sbt assembly)
+
+deploy:
+	${SPARK_HOME}/bin/spark-submit --class nl.rug.sc.app.SparkSubmitMain --deploy-mode client --master spark://localhost:7077 ./Project/target/scala-2.11/Project-assembly-0.1.jar
+
+	# ${SPARK_HOME}/bin/spark-submit  --master spark://master:7077 --class org.apache.spark.examples.SparkPi ${SPARK_HOME}/examples/jars/spark-examples_2.11-2.2.1.jar 1000

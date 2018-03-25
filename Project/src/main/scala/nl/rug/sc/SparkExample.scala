@@ -103,7 +103,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     * An example using Data Sets, improvement over both RDD and Data Frames
     */
   def dataSetExample(): Unit = {
-    import sparkSession.implicits._ // Data in datasets must be encoded (serialized), these implicits give support for primitive types and Case Classes
+    import sparkSession.implicits._// Data in datasets must be encoded (serialized), these implicits give support for primitive types and Case Classes
 
     val dataSet = sparkSession.createDataset(List(1, 2, 3, 4, 5))
 
