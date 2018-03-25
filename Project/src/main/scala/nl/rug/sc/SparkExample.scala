@@ -20,6 +20,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import scala.collection.JavaConverters._
 import java.util
 import java.util.{ArrayList, Properties}
+import java.time.Instant
 
 import com.mongodb.spark.rdd.MongoRDD
 import com.typesafe.config.ConfigFactory
@@ -29,6 +30,7 @@ import org.apache.commons.io.Charsets
 import org.apache.kafka.clients.producer._
 import org.spark_project.guava.io.BaseEncoding
 
+import scala.collection.mutable._
 import scala.io.Source
 import scala.util.parsing.json.JSON
 import scalaj.http.{Http, HttpOptions}
@@ -364,6 +366,9 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def buildString(str: String, strings: Array[String]): String = {
+    if(strings == null){
+      return ""
+    }
     return "Track Name: " + str + "\n" + "Recommendation List: " +strings.mkString(", ") + "\n\n"
   }
 
@@ -384,6 +389,9 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
       val customRdd = MongoSpark.load(sparkContext, readConfig)
 
       val results = recommender.predictBySongId(songId, customRdd, k)
+      if(results == null){
+        return null
+      }
       val candidates = results.map { obj =>
         new Document("songId", obj._1).append("distance", obj._2).append("vectors", obj._3.toList.asJava)
       }.collect().slice(0, 100).toList.asJava
@@ -407,16 +415,16 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     }
   }
 
-  def songPredictStreamProducer(songId: String): Unit = {
+  def songPredictStreamProducer(songId: String, timestamp: Long, hash: Int): Unit = {
     println("Producer: " + songId)
-    val record = new ProducerRecord(TOPIC_REQUEST, songId, songId)
+    val record = new ProducerRecord(TOPIC_REQUEST, songId, timestamp.toString + hash.toString)
     val result = requestProducer.send(record)
   }
 
   def predictRequestWaitingConsumer(): Unit = {
     requestConsumer.subscribe(util.Collections.singletonList(TOPIC_REQUEST))
     import java.io._
-    import java.time.Instant
+    val processedMap = new HashMap[Int, Long]
 
     while(true){
       val records=requestConsumer.poll(10000)
@@ -424,17 +432,29 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
         println("Streaming: " + records.count())
         var textToWrite = ""
         for (record <- records.asScala) {
-          val resList = predictExample(record.key())
-          textToWrite += buildString(record.key(), resList)
+          val key = record.value().substring(10, record.value().length).toInt
+          val keyTime = record.value().substring(0, 10).toLong
+
+          if(!processedMap.contains(key)){
+            val resList = predictExample(record.key())
+            textToWrite += buildString(record.key(), resList)
+            processedMap.put(key, keyTime)
+          } else if(processedMap.contains(key) && processedMap.get(key).get <= keyTime){
+            val resList = predictExample(record.key())
+            textToWrite += buildString(record.key(), resList)
+            processedMap.update(key, keyTime)
+          }
         }
-        val path = "target/tmp/"
-        val theDir = new File(path)
-        if (!theDir.exists()) theDir.mkdir()
-        val file = new File(path + "/" + Instant.now.getEpochSecond + ".txt" )
-        file.createNewFile()
-        val pw = new PrintWriter(file)
-        pw.write(textToWrite)
-        pw.close
+        if(textToWrite.length > 0){
+          val path = "target/tmp/"
+          val theDir = new File(path)
+          if (!theDir.exists()) theDir.mkdir()
+          val file = new File(path + "/" + Instant.now.getEpochSecond + ".txt" )
+          file.createNewFile()
+          val pw = new PrintWriter(file)
+          pw.write(textToWrite)
+          pw.close
+        }
       }
     }
 
@@ -444,7 +464,21 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
    import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
    import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 
-   val kafkaParams = Map[String, Object](
+   val kafkaParams = Map[String, Object](val path = "target/tmp/"
+        val theDir = new File(path)
+        if (!theDir.exists()) theDir.mkdir()
+        val file = new File(path + "/" + Instant.now.getEpochSecond + ".txt" )
+        file.createNewFile()
+        val pw = new PrintWriter(file)
+        pw.write(textToWrite)
+        pw.closeval path = "target/tmp/"
+        val theDir = new File(path)
+        if (!theDir.exists()) theDir.mkdir()
+        val file = new File(path + "/" + Instant.now.getEpochSecond + ".txt" )
+        file.createNewFile()
+        val pw = new PrintWriter(file)
+        pw.write(textToWrite)
+        pw.close
      "bootstrap.servers" -> kafka_server,
      "key.deserializer" -> classOf[StringDeserializer],
      "value.deserializer" -> classOf[StringDeserializer],
@@ -512,7 +546,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     ).collect()
 
     sampledArray.foreach(str => {
-      songPredictStreamProducer(str)
+      songPredictStreamProducer(str, Instant.now.getEpochSecond, this.hashCode())
       Thread.sleep(1000)
     })
 
