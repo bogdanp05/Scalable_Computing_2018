@@ -122,9 +122,11 @@ object predictor{
 //      (obj._1, dotProduct, obj._2.toArray)
 //    }.sortBy(_._2, false).collect().slice(0, 100)
 
+
 //    println(artistid)
 //    println(targetVector)
 //    println(normalize(targetVector))
+
 
 //    topRecommended.foreach{ obj =>
 //      println(obj)

@@ -40,6 +40,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   private val conf = ConfigFactory.load()
   private val kafka_server = conf.getString("spark-project.kafka.server")
   private val streaming_source = conf.getString("spark-project.kafka.source")
+  private val DBFULL = conf.getString("spark-project.mongo.DBFULL")
   private val DB = conf.getString("spark-project.mongo.DB")
   private val historyColl = conf.getString("spark-project.mongo.historyCollection")
   private val resultsColl = conf.getString("spark-project.mongo.modelCollection")
@@ -109,7 +110,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     * An example using Data Sets, improvement over both RDD and Data Frames
     */
   def dataSetExample(): Unit = {
-    import sparkSession.implicits._ // Data in datasets must be encoded (serialized), these implicits give support for primitive types and Case Classes
+    import sparkSession.implicits._// Data in datasets must be encoded (serialized), these implicits give support for primitive types and Case Classes
 
     val dataSet = sparkSession.createDataset(List(1, 2, 3, 4, 5))
 
@@ -325,7 +326,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def randomSample(percent:Double): Unit = {
-    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val readConfig = ReadConfig(Map("database" -> DBFULL, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataSet = MongoSpark.load(sparkContext, readConfig).toDF()
     val sampledDS = dataSet.sample(withReplacement = false, percent)
 
