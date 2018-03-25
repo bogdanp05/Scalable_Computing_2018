@@ -1,9 +1,6 @@
 import csv
-import json
-import pandas as pd
-import sys, getopt, pprint
 from pymongo import MongoClient
-#CSV to JSON Conversion
+
 csvfile = open('./Project/src/main/resources/csv/train_triplets.csv', 'r')
 # csvfile = open('./Project/src/main/resources/csv/mao200k.csv', 'r')
 reader = csv.DictReader(csvfile)

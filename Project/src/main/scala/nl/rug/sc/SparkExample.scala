@@ -39,6 +39,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   private val conf = ConfigFactory.load()
   private val kafka_server = conf.getString("spark-project.kafka.server")
   private val streaming_source = conf.getString("spark-project.kafka.source")
+  private val DBFULL = conf.getString("spark-project.mongo.DBFULL")
   private val DB = conf.getString("spark-project.mongo.DB")
   private val historyColl = conf.getString("spark-project.mongo.historyCollection")
   private val resultsColl = conf.getString("spark-project.mongo.modelCollection")
@@ -320,7 +321,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def randomSample(percent:Double): Unit = {
-    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val readConfig = ReadConfig(Map("database" -> DBFULL, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataSet = MongoSpark.load(sparkContext, readConfig).toDF()
     val sampledDS = dataSet.sample(withReplacement = false, percent)
 
