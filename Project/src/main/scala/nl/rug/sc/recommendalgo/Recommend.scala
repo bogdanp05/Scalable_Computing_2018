@@ -102,28 +102,33 @@ object ratingCreater{
 }
 
 object predictor{
-  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10): Array[(String, Double, Array[Double])] = {
+  def get_related(artist_factors: RDD[(String, DenseVector[Double])], artistid: String, N:Int = 10): RDD[(String, Double, Array[Double])] = {
     // fully normalize artist_factors, so can compare with only the dot product
     println("===item factor length: " + artist_factors.count())
 
-    val targetVector = artist_factors.lookup(artistid).head
+    val target = artist_factors.lookup(artistid)
+    if (target.isEmpty){
+      return null
+    }
+    val scale_value = 1.0
+    val targetVector = target.head:*=scale_value
     val topRecommended = artist_factors.map { obj =>
-      val dotProduct = (targetVector - obj._2)
+      val dotProduct = (targetVector - obj._2:*=scale_value)
       (obj._1, dotProduct dot dotProduct, obj._2.toArray)
-    }.sortBy(_._2, ascending = true).collect().slice(0, 100)
+    }.sortBy(_._2, ascending = true)
 
 //    val topRecommended = artist_factors.map { obj =>
 //      val dotProduct = normalize(obj._2) dot normalize(targetVector)
 //      (obj._1, dotProduct, obj._2.toArray)
 //    }.sortBy(_._2, false).collect().slice(0, 100)
 
-    println(artistid)
-    println(targetVector)
-    println(normalize(targetVector))
+//    println(artistid)
+//    println(targetVector)
+//    println(normalize(targetVector))
 
-    topRecommended.foreach{ obj =>
-      println(obj)
-    }
+//    topRecommended.foreach{ obj =>
+//      println(obj)
+//    }
 
     return topRecommended
   }
@@ -281,7 +286,7 @@ class Recommend {
     return myitemMatrix
   }
 
-  def predictBySongId(songId: String, customRdd: MongoRDD[Document], k: Int): Array[(String, Double, Array[Double])] = {
+  def predictBySongId(songId: String, customRdd: MongoRDD[Document], k: Int): RDD[(String, Double, Array[Double])] = {
 
     println(customRdd.count())
 

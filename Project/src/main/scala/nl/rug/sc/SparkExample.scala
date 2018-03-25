@@ -26,6 +26,7 @@ import com.typesafe.config.ConfigFactory
 import nl.rug.sc.recommendalgo.{Recommend, predictor}
 import nl.rug.sc.misc._
 import org.apache.commons.io.Charsets
+import org.apache.kafka.clients.producer._
 import org.spark_project.guava.io.BaseEncoding
 
 import scala.io.Source
@@ -45,14 +46,19 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   private val tripletsColl = conf.getString("spark-project.mongo.dataCollection")
 
   private val TOPIC = "test"
-  private val  props = new Properties()
+  private val TOPIC_REQUEST = "predictRequests"
+  private val TOPIC_RECOMMENDATION = "predictResults"
+  private val props = new Properties()
   private val recommender = new Recommend()
+  private val k = 5
   props.put("bootstrap.servers", kafka_server)
   props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
   props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
   props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
   props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
   props.put("group.id", "group1")
+  private val requestProducer = new KafkaProducer[String, String](props)
+  private val requestConsumer = new KafkaConsumer[String, String](props)
 
 
   /**
@@ -249,7 +255,6 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def kafkaProducer(): Unit = {
-    import org.apache.kafka.clients.producer._
     val producer = new KafkaProducer[String, String](props)
     for(i<- 1 to 20){
       val record = new ProducerRecord(TOPIC, "key", s"hello $i")
@@ -264,15 +269,15 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def kafkaStreamProducer(): Unit = {
-    import org.apache.kafka.clients.producer._
     val producer = new KafkaProducer[String, String](props)
     val path = getClass.getResource(streaming_source).getPath
     val bufferedSource = Source.fromFile(path)
     for (line <- bufferedSource.getLines){
       val cols = line.split(",").map(_.trim)
-      println(cols(1))
+      println("Producer: " + cols(1))
       val record = new ProducerRecord(TOPIC, "key", cols(1))
       val result = producer.send(record)
+
       Thread.sleep(2500)
     }
     bufferedSource.close()
@@ -283,7 +288,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     val consumer = new KafkaConsumer[String, String](props)
 
     consumer.subscribe(util.Collections.singletonList(TOPIC))
-
+    println("subscribed")
     while(true){
       val records=consumer.poll(2000)
       println(records.count())
@@ -357,36 +362,166 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     printContinueMessage()
   }
 
-  def predictExample(songId: String, k: Int): Unit = {
-    val readConfigArchived = ReadConfig(Map("database" -> DB, "collection" -> historyColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
-    val historyRequests = MongoSpark.load(sparkContext, readConfigArchived).toDF()
+  def buildString(str: String, strings: Array[String]): String = {
+    return "Track Name: " + str + "\n" + "Recommendation List: " +strings.mkString(", ") + "\n\n"
+  }
 
-    val requestedCandidates = if (historyRequests.head(1).isEmpty) null else historyRequests.filter(historyRequests("_id").equalTo(songId))
-    val count = if (requestedCandidates == null) 0 else requestedCandidates.count()
+  def predictExample(songId: String): Array[String] = {
+//    val readConfigArchived = ReadConfig(Map("database" -> DB, "collection" -> historyColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+//    val historyRequests = MongoSpark.load(sparkContext, readConfigArchived).toDF()
+//
+//    val requestedCandidates = if (historyRequests.head(1).isEmpty) null else historyRequests.filter(historyRequests("_id").equalTo(songId))
+//    val count = if (requestedCandidates == null) 0 else requestedCandidates.count()
 
-    println("========"+count)
-    if(count > 0){
-      val histObj = requestedCandidates.first()
-      println("Request song ID: " + histObj.getString(0))
-      for (i <- 0 until histObj.getList(1).size()-1){
-        println(histObj.getList(1).get(i))
-      }
+    if(false){
+//      val histObj = requestedCandidates.first().getList(1).asInstanceOf[util.ArrayList[Object]]
+//      resList = histObj.toString
+      return Array("")
 
     }else {
       val readConfig = ReadConfig(Map("collection" -> resultsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
       val customRdd = MongoSpark.load(sparkContext, readConfig)
 
-      val results = recommender.predictBySongId(songId, customRdd, k).map { obj =>
+      val results = recommender.predictBySongId(songId, customRdd, k)
+      val candidates = results.map { obj =>
         new Document("songId", obj._1).append("distance", obj._2).append("vectors", obj._3.toList.asJava)
-      }.toList.asJava
+      }.collect().slice(0, 100).toList.asJava
 
+      val resList = results.map { obj =>
+        obj._1
+      }.collect().slice(0, 10)
+
+//      println(resList.mkString(","))
+      return resList
+
+      /* === save predicted results to database === */
+      /*
       val arr = Array(songId)
       val toSave = sparkContext.parallelize(arr).map { obj =>
-        new Document("_id", obj).append("candidateSongs", results)
+        new Document("_id", obj).append("candidateSongs", candidates)
       }
       val writeConfig = WriteConfig(Map("database" -> DB, "collection" -> historyColl, "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
       MongoSpark.save(toSave, writeConfig)
+      */
     }
+  }
+
+  def songPredictStreamProducer(songId: String): Unit = {
+    println("Producer: " + songId)
+    val record = new ProducerRecord(TOPIC_REQUEST, songId, songId)
+    val result = requestProducer.send(record)
+  }
+
+  def predictRequestWaitingConsumer(): Unit = {
+    requestConsumer.subscribe(util.Collections.singletonList(TOPIC_REQUEST))
+    import java.io._
+    import java.time.Instant
+
+    while(true){
+      val records=requestConsumer.poll(10000)
+      if (records.count() > 0) {
+        println("Streaming: " + records.count())
+        var textToWrite = ""
+        for (record <- records.asScala) {
+          val resList = predictExample(record.key())
+          textToWrite += buildString(record.key(), resList)
+        }
+        val path = "target/tmp/"
+        val theDir = new File(path)
+        if (!theDir.exists()) theDir.mkdir()
+        val file = new File(path + "/" + Instant.now.getEpochSecond + ".txt" )
+        file.createNewFile()
+        val pw = new PrintWriter(file)
+        pw.write(textToWrite)
+        pw.close
+      }
+    }
+
+    // combining kafka and spark to Direct Stream (ISSUE now)
+    /*
+   import org.apache.spark.streaming.kafka010._
+   import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+   import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+
+   val kafkaParams = Map[String, Object](
+     "bootstrap.servers" -> kafka_server,
+     "key.deserializer" -> classOf[StringDeserializer],
+     "value.deserializer" -> classOf[StringDeserializer],
+     "group.id" -> props.getProperty("group.id"),
+     "auto.offset.reset" -> "latest",
+     "enable.auto.commit" -> (true: java.lang.Boolean)
+   )
+   val topics = Array(TOPIC_REQUEST)
+   val stream = KafkaUtils.createDirectStream[String, String](
+     streamingContext,
+     PreferConsistent,
+     Subscribe[String, String](topics, kafkaParams)
+   )
+
+   while(true){
+     Thread.sleep(2500)
+
+     val dstream = stream.map(record => {
+       println("Value: " + record.value())
+       (record.value)
+     })
+     dstream.foreachRDD(rdd => {
+       rdd.map(str => {
+         println("Str: " + str)
+       }).collect()
+     })
+   }
+   */
+  }
+
+  def songRecommendationStreamProducer(songId: String, recList: String): Unit = {
+    val record = new ProducerRecord(TOPIC_RECOMMENDATION, songId, recList)
+    val result = requestProducer.send(record)
+  }
+
+  def resultWaitingConsumer(songId: String): Unit = {
+    val consumer = new KafkaConsumer[String, String](props)
+
+    consumer.subscribe(util.Collections.singletonList(TOPIC_RECOMMENDATION))
+
+    while(true){
+      val records=consumer.poll(2000)
+      if (records.count() > 0) {
+        println(records.count())
+        for (record <- records.asScala) {
+          println(record.value())
+          consumer.close()
+        }
+      }
+    }
+  }
+
+  def predictStreaming(numSongs: Double): Unit = {
+//    val path = getClass.getResource(streaming_source).getPath
+//    val bufferedSource = Source.fromFile(
+    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> resultsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val dataSet = MongoSpark.load(sparkContext, readConfig)
+    val percent = numSongs/dataSet.count()
+    val sampledStream = dataSet.sample(withReplacement = false, percent)
+    println("Sampled tracks: " + sampledStream.count())
+    val sampledArray = sampledStream.map(
+      doc => {
+        doc.getString("_id")
+      }
+    ).collect()
+
+    sampledArray.foreach(str => {
+      songPredictStreamProducer(str)
+      Thread.sleep(1000)
+    })
+
+//    resultWaitingConsumer("")
+//    for (line <- bufferedSource.getLines){
+//      val cols = line.split(",").map(_.trim)
+//      songPredictStreamProducer(cols(1))
+//      Thread.sleep(1000)
+//    }
+//    bufferedSource.close()
 
   }
 
