@@ -216,6 +216,8 @@ class Recommend {
         regMatrix(j, j) = regfactor
       }
 
+
+      /* calculate User matrix */
       var songJoinedData = myitemMatrix.join(ratingByItem).persist(StorageLevel.MEMORY_ONLY)
       var tempUserMatrixRDD = songJoinedData.map(q => {
         var song = q._1
@@ -232,14 +234,17 @@ class Recommend {
         var (user, rating) = q._2._2
         var tempDenseVector = q._2._1
 
-        var secondTempVector = tempDenseVector :* rating.toDouble
+        var secondTempVector = tempDenseVector *:* rating.toDouble
         (user, secondTempVector)
       }
-      ).reduceByKey(_ + _).persist(StorageLevel.MEMORY_ONLY)
+      ).reduceByKey((v1, v2) => v1 + v2).persist(StorageLevel.MEMORY_ONLY)
 
       var finalUserVectorRDD = tempUserMatrixRDD.join(tempUserVectorRDD).map(p => (p._1, p._2._1 * p._2._2)).persist(StorageLevel.MEMORY_ONLY)
-      myuserMatrix = finalUserVectorRDD.partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
+      myuserMatrix = finalUserVectorRDD.persist(StorageLevel.MEMORY_ONLY)
 
+
+
+      /* calculate Song matrix */
       var userJoinedData = myuserMatrix.join(ratingByUser).persist(StorageLevel.MEMORY_ONLY)
       var tempSongMatrixRDD = userJoinedData.map(q => {
         var tempUser = q._1
@@ -249,20 +254,20 @@ class Recommend {
         var tempDenseMatrix = tempDenseVector * tempTransposeVector
         (song, tempDenseMatrix)
       }
-      ).reduceByKey(_ + _).map(q => (q._1, inv(q._2 + regMatrix))).persist(StorageLevel.MEMORY_ONLY)
+      ).reduceByKey((v1, v2) => v1 + v2).map(q => (q._1, inv(q._2 + regMatrix))).persist(StorageLevel.MEMORY_ONLY)
 
       var tempSongVectorRDD = userJoinedData.map(q => {
         var tempUser = q._1
         var (song, rating) = q._2._2
         var tempDenseVector = q._2._1
 
-        var secondTempVector = tempDenseVector :* rating.toDouble
+        var secondTempVector = tempDenseVector *:* rating.toDouble
         (song, secondTempVector)
       }
       ).reduceByKey(_ + _).persist(StorageLevel.MEMORY_ONLY)
 
       var finalSongVectorRDD = tempSongMatrixRDD.join(tempSongVectorRDD).map(p => (p._1, p._2._1 * p._2._2)).persist(StorageLevel.MEMORY_ONLY)
-      myitemMatrix = finalSongVectorRDD.partitionBy(new HashPartitioner(10)).persist(StorageLevel.MEMORY_ONLY)
+      myitemMatrix = finalSongVectorRDD.persist(StorageLevel.MEMORY_ONLY)
 
     }
 
@@ -284,6 +289,7 @@ class Recommend {
     ratings.top(3).foreach(obj => {
       println(obj._1 + ", " + obj._2 + ", " + obj._3)
     })
+    println("new training"+ myitemMatrix.count())
 
     return myitemMatrix
   }

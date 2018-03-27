@@ -23,7 +23,7 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    example.streamMQSpark()
 
     /* run this to get sampled dataset */
-//    example.randomSample(0.001)
+//    example.randomSample(0.005)
 
     /* run this to get training results */
 
@@ -48,7 +48,7 @@ trait SparkTrait { // A trait can be compared to a Java Interface
     }
 
     val futureProd = Future{
-      example.predictStreaming(3)
+      example.predictStreaming(5)
     }
 
 
