@@ -231,6 +231,20 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     printContinueMessage()
   }
 
+  def findPopular(): RDD[(String ,Int)] = {
+    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val dataRdd = MongoSpark.load(sparkContext, readConfig)
+
+    val filteredDataSet = dataRdd.map(doc => {
+      (doc.getString("song"), doc.getString("count").toInt)
+    }).reduceByKey((song1, song2) => song1 + song2).filter(aa => aa._2 > 150).sortBy(_._2, ascending = false)
+    val topPopular = filteredDataSet.collect().slice(0, 100).map(dd =>
+    {
+      println(dd)
+    })
+    return filteredDataSet
+  }
+
   def streamMQSpark(): Unit = {
     println("Here1")
     val kafkaParams = Map[String, Object](
@@ -400,7 +414,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
         obj._1
       }.collect().slice(0, 10)
 
-//      println(resList.mkString(","))
+      println(resList.mkString(","))
       return resList
 
       /* === save predicted results to database === */
@@ -534,14 +548,18 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   def predictStreaming(numSongs: Double): Unit = {
 //    val path = getClass.getResource(streaming_source).getPath
 //    val bufferedSource = Source.fromFile(
-    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> resultsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
-    val dataSet = MongoSpark.load(sparkContext, readConfig)
-    val percent = numSongs/dataSet.count()
-    val sampledStream = dataSet.sample(withReplacement = false, percent)
+
+//    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> resultsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+//    val dataSet = MongoSpark.load(sparkContext, readConfig)
+//    val percent = numSongs/dataSet.count()
+//    val sampledStream = dataSet.sample(withReplacement = false, percent)
+    val popularSongs = findPopular()
+    val percent = numSongs/popularSongs.count()
+    val sampledStream = popularSongs.sample(withReplacement = false, percent)
     println("Sampled tracks: " + sampledStream.count())
     val sampledArray = sampledStream.map(
       doc => {
-        doc.getString("_id")
+        doc._1
       }
     ).collect()
 

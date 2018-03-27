@@ -23,13 +23,12 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    example.streamMQSpark()
 
     /* run this to get sampled dataset */
-//    example.randomSample(0.005)
+//    example.randomSample(0.1)
 
     /* run this to get training results */
-
 //    example.fmTrainingExample(5)
 
-//    example.predictExample("SOYHEPA12A8C13097F", 5)
+//    example.predictExample("Radiohead|||Let Down")
 //    example.spotifyToken()
 
 //    val futureCons = Future{
@@ -54,8 +53,7 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 
     Await.result(futureCons, Duration.Inf)
 
-//    sparkSession.stop()
-
+    sparkSession.stop()
 
     println("Done")
   }

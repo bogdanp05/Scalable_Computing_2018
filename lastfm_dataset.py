@@ -1,7 +1,7 @@
 import pandas as pd
 import random
 
-source_path = "/media/bogdan/2084D71E84D6F4EE/MyData/School/Year1Block1/IDS/Ass4/lastfm-dataset-1K/" \
+source_path = "/home/andrewx/Downloads/lastfm-dataset-1K/" \
               "userid-timestamp-artid-artname-traid-traname.tsv"
 
 
