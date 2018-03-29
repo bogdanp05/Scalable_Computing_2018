@@ -26,7 +26,7 @@ trait SparkTrait { // A trait can be compared to a Java Interface
 //    example.randomSample(0.1)
 
     /* run this to get training results */
-//    example.fmTrainingExample(5)
+    example.fmTrainingExample(5)
 
 //    example.predictExample("Radiohead|||Let Down")
 //    example.spotifyToken()

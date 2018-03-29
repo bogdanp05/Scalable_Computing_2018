@@ -38,13 +38,16 @@ object SparkSubmitMain extends App with SparkTrait {
   // Note: when using spark-submit we do not define a master, the master definition is passed to the spark-submit command
 
   println("Command line argument 1: " + args(0))
+  println("Command line argument 2: " + args(1))
   val mongoIP: String = if (args.isEmpty) "172.19.0.2" else args(0)
+  val kafkaIP: String = if (args.length < 2) "localhost" else args(1)
 
   override def sparkSession = SparkSession // Usually you only create one Spark Session in your application, but for demo purpose we recreate them
     .builder()
     .appName("spark-project")
     .config("spark.mongodb.input.uri", "mongodb://" + mongoIP + ":27017/music_data2.triplets")
     .config("spark.mongodb.output.uri", "mongodb://" + mongoIP + ":27017/music_data2.results")
+    .config("kafkaIP", kafkaIP + ":9092")
     .getOrCreate()
 
   override def pathToCsv = getClass.getResource("/csv/train_triplets.csv").getPath

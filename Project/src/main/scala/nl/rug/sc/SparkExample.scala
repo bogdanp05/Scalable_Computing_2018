@@ -40,7 +40,9 @@ case class Person(id: Int, name: String, grade: Double) // For the advanced data
 class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingContext: StreamingContext) {
   private val sparkContext = sparkSession.sparkContext
   private val conf = ConfigFactory.load()
-  private val kafka_server = conf.getString("spark-project.kafka.server")
+//  private val kafka_server = conf.getString("spark-project.kafka.server")
+  private val kafka_server = sparkSession.conf.get("kafkaIP")
+  println("----------Kafka IP in SparkExample: " + kafka_server)
   private val streaming_source = conf.getString("spark-project.kafka.source")
   private val DBFULL = conf.getString("spark-project.mongo.DBFULL")
   private val DB = conf.getString("spark-project.mongo.DB")
@@ -354,7 +356,7 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
   }
 
   def fmTrainingExample(k: Int):Unit = {
-    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val readConfig = ReadConfig(Map("database" -> DBFULL, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataSet = MongoSpark.load(sparkContext, readConfig)
     val myRdd: RDD[Document] = dataSet.rdd
     //    val myRdd = MongoSpark.load(sparkSession.sparkContext)
