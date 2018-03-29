@@ -11,8 +11,10 @@ object SparkLocalMain extends App with SparkTrait {
     .builder()
     .appName("spark-project")
     .master(master)
-    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data2.triplets")
-    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/music_data2.results")
+    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data.triplets")
+    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/music_data.results")
+    .config("kafkaIP", "localhost:9092")
+    .config("trainFlag", "false")
     .getOrCreate()
 
 //    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data.triplets")

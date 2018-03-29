@@ -48,7 +48,7 @@ trait SparkTrait { // A trait can be compared to a Java Interface
     }
 
     val futureProd = Future{
-      example.predictStreaming(5)
+      example.predictStreaming(10)
     }
 
 

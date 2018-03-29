@@ -183,7 +183,7 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
   }
 
   def findPopular(): RDD[(String ,Int)] = {
-    val readConfig = ReadConfig(Map("database" -> DB, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
+    val readConfig = ReadConfig(Map("database" -> DBFULL, "collection" -> tripletsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
     val dataRdd = MongoSpark.load(sparkContext, readConfig)
 
     val filteredDataSet = dataRdd.map(doc => {
@@ -325,7 +325,7 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
       StructField("_id", StringType, nullable = false)::
         StructField("vectors", ArrayType(DoubleType, containsNull = false), nullable = false)::Nil)
     )
-    MongoSpark.write(df).option("database", DB).option("collection", resultsColl).mode("overwrite").save()
+    MongoSpark.write(df).option("database", DBFULL).option("collection", resultsColl).mode("overwrite").save()
     //    MongoSpark.save(toSave)
     printContinueMessage()
   }
@@ -350,6 +350,7 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
       return Array("")
 
     }else {
+      println("-----here predicts")
       val readConfig = ReadConfig(Map("collection" -> resultsColl, "readPreference.name" -> "Primary"), Some(ReadConfig(sparkContext)))
       val customRdd = MongoSpark.load(sparkContext, readConfig)
 
@@ -390,9 +391,11 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
     requestConsumer.subscribe(util.Collections.singletonList(TOPIC_REQUEST))
     import java.io._
     val processedMap = new HashMap[Int, Long]
-
+    println("-----Consumer started")
     while(true){
-      val records=requestConsumer.poll(10000)
+      println("---------here2")
+      val records=requestConsumer.poll(5000)
+      println("---------poll")
       if (records.count() > 0) {
         println("Streaming: " + records.count())
         var textToWrite = ""
@@ -411,6 +414,8 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
           }
         }
         if(textToWrite.length > 0){
+          println("Recommendations:")
+          println(textToWrite)
           val path = "target/tmp/"
           val theDir = new File(path)
           if (!theDir.exists()) theDir.mkdir()

@@ -50,8 +50,8 @@ object SparkSubmitMain extends App with SparkTrait {
   override def sparkSession = SparkSession // Usually you only create one Spark Session in your application, but for demo purpose we recreate them
     .builder()
     .appName("spark-project")
-    .config("spark.mongodb.input.uri", "mongodb://" + mongoIP + ":27017/music_data2.triplets")
-    .config("spark.mongodb.output.uri", "mongodb://" + mongoIP + ":27017/music_data2.results")
+    .config("spark.mongodb.input.uri", "mongodb://" + mongoIP + ":27017/music_data.triplets")
+    .config("spark.mongodb.output.uri", "mongodb://" + mongoIP + ":27017/music_data.results")
     .config("kafkaIP", kafkaIP + ":9092")
     .config("trainFlag", trainFlag)
     .getOrCreate()
