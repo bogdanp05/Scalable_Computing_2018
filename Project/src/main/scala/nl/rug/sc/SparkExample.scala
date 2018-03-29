@@ -25,7 +25,7 @@ import java.time.Instant
 import com.mongodb.spark.rdd.MongoRDD
 import com.typesafe.config.ConfigFactory
 import nl.rug.sc.recommendalgo.{Recommend, predictor}
-import nl.rug.sc.misc._
+//import nl.rug.sc.misc._
 import org.apache.commons.io.Charsets
 import org.apache.kafka.clients.producer._
 import org.spark_project.guava.io.BaseEncoding
@@ -37,7 +37,7 @@ import scalaj.http.{Http, HttpOptions}
 
 case class Person(id: Int, name: String, grade: Double) // For the advanced data set example, has to be defined outside the scope
 
-class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingContext: StreamingContext) {
+class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContext) {
   private val sparkContext = sparkSession.sparkContext
   private val conf = ConfigFactory.load()
 //  private val kafka_server = conf.getString("spark-project.kafka.server")
@@ -162,57 +162,6 @@ class SparkExample(sparkSession: SparkSession, pathToCsv: String, streamingConte
     printContinueMessage()
   }
 
-  /**
-    * In your case, you will be reading your data from a database, or (csv, json) file, instead of creating the data in code as we have previously done.
-    * We use a CSV containing 3200 US cities as an example data set.
-    */
-  def dataSetRealisticExample(): Unit = {
-    val dataSet = sparkSession.read
-      .option("header", "true") // First line in the csv is the header, will be used to name columns
-      .option("inferSchema", "true") // Infers the data types (primitives), otherwise the schema will consist of Strings only
-      .csv(pathToCsv) // Loads the data from the resources folder in src/main/resources, can also be a path on your storage device
-
-    dataSet.show(50) // Show first 20 results
-
-    printContinueMessage()
-
-    dataSet
-      .sort(desc("count")) // Sort by play count
-      .show(50)
-
-    printContinueMessage()
-
-    import sparkSession.implicits._ // For the $-sign notation
-
-    //    dataSet
-    //      .filter($"pop" < 10000) // Filter on column 'pop' such that only cities with less than 10k population remain
-    //      .sort($"lat") // Sort remaining cities by latitude, can also use $-sign notation here
-    //      .show()
-
-    //    printContinueMessage()
-
-    //    dataSet
-    //      .withColumn("name_first_letter", $"name".substr(0,1)) // Create a new column which contains the first letter of the name of the city
-    //      .groupBy($"name_first_letter") // Group all items based on the first letter
-    //      .count() // Count the occurrences per group
-    //      .sort($"name_first_letter") // Sort alphabetically
-    //      .show(26) // Returns the number of cities in the US for each letter of the alphabet, shows the first 26 results
-
-    //    printContinueMessage()
-
-    import org.apache.spark.sql.functions._ // For the round  (...) functionality
-
-    //    dataSet
-    //      .withColumn("pop_10k", (round($"pop" / 10000) * 10000).cast(IntegerType)) // Create a column which rounds the population to the nearest 10k
-    //      .groupBy("pop_10k") // Group by the rounded population
-    //      .count() // Count the occurences
-    //      .sort("pop_10k") // Sort from low to high
-    //      .show(100) // Returns the number of cities in 10k intervals
-
-    dataSet.printSchema()
-
-    printContinueMessage()
-  }
 
   def mongoData(): Unit = {
     //val rdd = MongoSpark.load(sparkSession.sparkContext)

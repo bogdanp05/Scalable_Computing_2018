@@ -12,21 +12,22 @@ import scala.concurrent.duration.Duration
 
 trait SparkTrait { // A trait can be compared to a Java Interface
   def sparkSession: SparkSession // this def has to be implemented when extending this trait
-  def pathToCsv: String // path to csv file, also has to be implemented
   def streamingContext: StreamingContext
 
   def run(): Unit = {
-    val example = new SparkExample(sparkSession, pathToCsv, streamingContext)
+    val example = new SparkExample(sparkSession, streamingContext)
 
-//    example.mongoData()
-//    This is to get the stream directly from Kafka into Spark
-//    example.streamMQSpark()
+    //    example.mongoData()
+    //    This is to get the stream directly from Kafka into Spark
+    //    example.streamMQSpark()
 
     /* run this to get sampled dataset */
-//    example.randomSample(0.1)
+    //    example.randomSample(0.1)
 
     /* run this to get training results */
-    example.fmTrainingExample(5)
+    if (sparkSession.conf.get("trainFlag").toLowerCase() == "true") {
+      example.fmTrainingExample(5)
+    }
 
 //    example.predictExample("Radiohead|||Let Down")
 //    example.spotifyToken()
