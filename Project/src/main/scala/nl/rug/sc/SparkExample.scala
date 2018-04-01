@@ -51,7 +51,7 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
   private val tripletsColl = conf.getString("spark-project.mongo.dataCollection")
 
   private val TOPIC = "test"
-  private val TOPIC_REQUEST = "predictRequests"
+  private val TOPIC_REQUEST = "d"
   private val TOPIC_RECOMMENDATION = "predictResults"
   private val props = new Properties()
   private val recommender = new Recommend()
@@ -360,24 +360,24 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
       }
       val candidates = results.map { obj =>
         new Document("songId", obj._1).append("distance", obj._2).append("vectors", obj._3.toList.asJava)
-      }.collect().slice(0, 100).toList.asJava
+      }.take(20).toList.asJava
 
-      val resList = results.map { obj =>
-        obj._1
-      }.collect().slice(0, 10)
+//      val resList = results.map { obj =>
+//        obj._1
+//      }.collect().slice(0, 10)
 
-      println(resList.mkString(","))
-      return resList
+//      println(resList.mkString(","))
+//      return resList
 
       /* === save predicted results to database === */
-      /*
+
       val arr = Array(songId)
       val toSave = sparkContext.parallelize(arr).map { obj =>
         new Document("_id", obj).append("candidateSongs", candidates)
       }
-      val writeConfig = WriteConfig(Map("database" -> DB, "collection" -> historyColl, "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
+      val writeConfig = WriteConfig(Map("database" -> DBFULL, "collection" -> historyColl, "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
       MongoSpark.save(toSave, writeConfig)
-      */
+      return Array("")
     }
   }
 
@@ -413,18 +413,18 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
             processedMap.update(key, keyTime)
           }
         }
-        if(textToWrite.length > 0){
-          println("Recommendations:")
-          println(textToWrite)
-          val path = "target/tmp/"
-          val theDir = new File(path)
-          if (!theDir.exists()) theDir.mkdir()
-          val file = new File(path + "/" + Instant.now.getEpochSecond + ".txt" )
-          file.createNewFile()
-          val pw = new PrintWriter(file)
-          pw.write(textToWrite)
-          pw.close
-        }
+//        if(textToWrite.length > 0){
+//          println("Recommendations:")
+//          println(textToWrite)
+//          val path = "target/tmp/"
+//          val theDir = new File(path)
+//          if (!theDir.exists()) theDir.mkdir()
+//          val file = new File(path + "/" + Instant.now.getEpochSecond + ".txt" )
+//          file.createNewFile()
+//          val pw = new PrintWriter(file)
+//          pw.write(textToWrite)
+//          pw.close
+//        }
       }
     }
 

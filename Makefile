@@ -42,5 +42,5 @@ deploy:
 	@echo ${MONGO_IP}
 	$(eval KAFKA_IP=$(shell docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kafka))
 	@echo ${KAFKA_IP}
-	${SPARK_HOME}/bin/spark-submit --class nl.rug.sc.app.SparkSubmitMain --deploy-mode client --master spark://${MASTER_IP}:7077 --executor-memory 5G ./Project/target/scala-2.11/Project-assembly-0.1.jar ${MONGO_IP} $(KAFKA_IP) false
+	${SPARK_HOME}/bin/spark-submit --class nl.rug.sc.app.SparkSubmitMain --deploy-mode client --master spark://${MASTER_IP}:7077 ./Project/target/scala-2.11/Project-assembly-0.1.jar ${MONGO_IP} $(KAFKA_IP) false
 
