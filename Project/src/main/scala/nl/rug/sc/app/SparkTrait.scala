@@ -2,7 +2,6 @@ package nl.rug.sc.app
 
 
 import nl.rug.sc.SparkExample
-//import nl.rug.sc.app.SparkLocalMain.sparkSession
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.StreamingContext
 
@@ -30,18 +29,6 @@ trait SparkTrait { // A trait can be compared to a Java Interface
     }
 
 //    example.predictExample("Radiohead|||Let Down")
-//    example.spotifyToken()
-
-//    val futureCons = Future{
-//      example.kafkaConsumer()
-//    }
-//
-//    val futureProd = Future{
-//      example.kafkaStreamProducer()
-//    }
-//
-//
-//    Await.result(futureCons, Duration.Inf)
 
     val futureCons = Future{
       example.predictRequestWaitingConsumer()

@@ -1,6 +1,4 @@
 package nl.rug.sc.app
-import com.mongodb.spark._
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 

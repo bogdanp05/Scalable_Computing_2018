@@ -3,8 +3,6 @@ package nl.rug.sc.app
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
-import scala.util.Try
-
 object SparkSubmitMain extends App with SparkTrait {
   // How to Run:
   //

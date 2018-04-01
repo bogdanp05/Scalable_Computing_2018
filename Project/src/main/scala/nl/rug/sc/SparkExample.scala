@@ -40,7 +40,6 @@ case class Person(id: Int, name: String, grade: Double) // For the advanced data
 class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContext) {
   private val sparkContext = sparkSession.sparkContext
   private val conf = ConfigFactory.load()
-//  private val kafka_server = conf.getString("spark-project.kafka.server")
   private val kafka_server = sparkSession.conf.get("kafkaIP")
   println("----------Kafka IP in SparkExample: " + kafka_server)
   private val streaming_source = conf.getString("spark-project.kafka.source")
@@ -64,103 +63,6 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
   props.put("group.id", "group1")
   private val requestProducer = new KafkaProducer[String, String](props)
   private val requestConsumer = new KafkaConsumer[String, String](props)
-
-
-  /**
-    * An example using RDD's, try to avoid RDD's
-    */
-  def rddExample(): Unit = {
-    val data = List(1, 2, 3, 4, 5)
-    val rdd = sparkContext.parallelize(data)
-
-    rdd
-      .map(x => x + 1) // Increase all numbers by one (apply the transformation x => x + 1 to every item in the set)
-      .collect() // Collect the data (send all data to the driver)
-      .foreach(println) // Print each item in the list
-
-    printContinueMessage()
-  }
-
-  /**
-    * An example using Data Frames, improvement over RDD but Data Sets are preferred
-    */
-  def dataFrameExample(): Unit = {
-    import sparkSession.implicits._ // Data in dataframes must be encoded (serialized), these implicits give support for primitive types and Case Classes
-    import scala.collection.JavaConverters._
-
-    val schema = StructType(List(
-      StructField("number", IntegerType, true)
-    ))
-
-    val dataRow = List(1, 2, 3, 4, 5)
-      .map(Row(_))
-      .asJava
-
-    val dataFrame = sparkSession.createDataFrame(dataRow, schema)
-
-    dataFrame
-      .select("number")
-      .map(row => row.getAs[Int]("number")) // Dataframe only has the concept of Row, we need to extract the column "number" and convert it to an Int
-      .map(_ + 1) // Different way of writing x => x + 1
-      .collect()
-      .foreach(println)
-
-    dataFrame.printSchema() // Data frames and data sets have schemas
-
-    printContinueMessage()
-  }
-
-  /**
-    * An example using Data Sets, improvement over both RDD and Data Frames
-    */
-  def dataSetExample(): Unit = {
-    import sparkSession.implicits._// Data in datasets must be encoded (serialized), these implicits give support for primitive types and Case Classes
-
-    val dataSet = sparkSession.createDataset(List(1, 2, 3, 4, 5))
-
-    dataSet
-      .map(_ + 1) // Different way of writing x => x + 1
-      .collect()
-      .foreach(println)
-
-    dataSet.printSchema()
-
-    printContinueMessage()
-  }
-
-  /**
-    * Advanced data set example using Scala's Case Classes for more complex data, note that the Case Class is defined at the top of this file.
-    */
-  def dataSetAdvancedExample(): Unit = {
-    import sparkSession.implicits._
-
-    val dataSet = sparkSession.createDataset(List(
-      Person(1, "Alice", 5.5),
-      Person(2, "Bob", 8.6),
-      Person(3, "Eve", 10.0)
-    ))
-
-    dataSet
-      .show() // Shows the table
-
-    printContinueMessage()
-
-    dataSet
-      .map(person => person.grade) // We transform the Person(int, string, double) to a double (Person => Double), extracting the person's grade
-      .collect() // Collect in case you want to do something with the data
-      .foreach(println)
-
-    printContinueMessage()
-
-    // Even cleaner is
-    dataSet
-      .select("grade")
-      .show()
-
-    dataSet.printSchema()
-
-    printContinueMessage()
-  }
 
 
   def mongoData(): Unit = {
@@ -408,8 +310,7 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
     val processedMap = new HashMap[Int, Long]
     println("-----Consumer started")
     while(true){
-      println("---------here2")
-      val records=requestConsumer.poll(5000)
+      val records = requestConsumer.poll(3000)
       println("---------poll")
       if (records.count() > 0) {
         println("Streaming: " + records.count())
@@ -552,6 +453,7 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
 //      Thread.sleep(1000)
 //    }
 //    bufferedSource.close()
+    println("---Producer done---")
 
   }
 
