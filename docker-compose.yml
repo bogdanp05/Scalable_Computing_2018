@@ -25,18 +25,18 @@ services:
       - "7077" 
     links:
       - mongo
-    #restart : always
+    restart : always
     command: spark/sbin/start-master.sh
 
-  spark-worker-1:
+  spark-worker:
     image: briansetz/docker-spark:2.2.1
-    container_name: spark-slave
+    #container_name: spark-slave
     links:
       - mongo
       - master:master 
     expose: 
       - "8081"
-    #restart : always
+    restart : always
     command: spark/sbin/start-slave.sh spark://master:7077
 
 

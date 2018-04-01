@@ -372,11 +372,26 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
       /* === save predicted results to database === */
 
       val arr = Array(songId)
-      val toSave = sparkContext.parallelize(arr).map { obj =>
-        new Document("_id", obj).append("candidateSongs", candidates)
+
+      val dsCandidates = results.map { obj =>
+        obj._1
+      }.take(20)
+      val toDF = sparkContext.parallelize(arr).map { obj =>
+        Row(obj, dsCandidates)
       }
-      val writeConfig = WriteConfig(Map("database" -> DBFULL, "collection" -> historyColl, "writeConcern.w" -> "majority"), Some(WriteConfig(sparkContext)))
-      MongoSpark.save(toSave, writeConfig)
+      val df = sparkSession.sqlContext.createDataFrame(toDF, StructType(
+        StructField("_id", StringType, nullable = false)::
+          StructField("vectors", ArrayType(StringType, containsNull = false), nullable = false)::Nil)
+      )
+      MongoSpark.write(df).option("database", DBFULL).option("collection", historyColl).mode("append").save()
+
+//      val toSave = sparkContext.parallelize(arr).map { obj =>
+//        new Document("_id", obj).append("candidateSongs", candidates)
+//      }
+//      val writeConfig = WriteConfig(Map("database" -> DBFULL, "collection" -> historyColl,
+//        "writeConcern.w" -> "majority", "replaceDocument" -> "false"), Some(WriteConfig(sparkContext)))
+//      MongoSpark.save(toSave, writeConfig)
+
       return Array("")
     }
   }
@@ -400,6 +415,7 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
         println("Streaming: " + records.count())
         var textToWrite = ""
         for (record <- records.asScala) {
+          println("----------songid: " + record.key())
           val key = record.value().substring(10, record.value().length).toInt
           val keyTime = record.value().substring(0, 10).toLong
 
@@ -509,19 +525,24 @@ class SparkExample(sparkSession: SparkSession, streamingContext: StreamingContex
 //    val dataSet = MongoSpark.load(sparkContext, readConfig)
 //    val percent = numSongs/dataSet.count()
 //    val sampledStream = dataSet.sample(withReplacement = false, percent)
-    val popularSongs = findPopular()
-    val percent = numSongs/popularSongs.count()
-    val sampledStream = popularSongs.sample(withReplacement = false, percent)
-    println("Sampled tracks: " + sampledStream.count())
-    val sampledArray = sampledStream.map(
-      doc => {
-        doc._1
-      }
-    ).collect()
+
+//    // Don't remove this
+//    val popularSongs = findPopular()
+//    val percent = numSongs/popularSongs.count()
+//    val sampledStream = popularSongs.sample(withReplacement = false, percent)
+//    println("Sampled tracks: " + sampledStream.count())
+//    val sampledArray = sampledStream.map(
+//      doc => {
+//        doc._1
+//      }
+//    ).collect()
+
+    val sampledArray = Array("Ac/Dc|||Highway To Hell", "Pink Floyd|||The Great Gig In The Sky",
+    "Kanye West|||Good Morning", "Nas|||The World Is Yours", "Maroon 5|||Harder To Breathe")
 
     sampledArray.foreach(str => {
       songPredictStreamProducer(str, Instant.now.getEpochSecond, this.hashCode())
-      Thread.sleep(1000)
+      Thread.sleep(3000)
     })
 
 //    resultWaitingConsumer("")
