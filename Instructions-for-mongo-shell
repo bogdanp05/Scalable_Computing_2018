@@ -11,3 +11,6 @@
 5. db.triplets.find()
    db.triplets.count()
 
+6. db.triplets.find({song: {$regex: /Led zeppelin/i}}).sort({count:-1})
+
+

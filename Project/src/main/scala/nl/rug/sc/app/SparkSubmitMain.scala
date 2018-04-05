@@ -1,7 +1,5 @@
 package nl.rug.sc.app
 
-import nl.rug.sc.app.SparkLocalMain.master
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
@@ -38,17 +36,25 @@ object SparkSubmitMain extends App with SparkTrait {
   // copy the (jar) file(s) to the cluster itself.
 
   // Note: when using spark-submit we do not define a master, the master definition is passed to the spark-submit command
+
+  val mongoIP: String = if (args.isEmpty) "172.19.0.2" else args(0)
+  val kafkaIP: String = if (args.length < 2) "localhost" else args(1)
+  val trainFlag: String = if (args.length <3) "false" else args(2)
+
+  for (arg <- args){
+    println("Command line argument: " + arg)
+  }
+
   override def sparkSession = SparkSession // Usually you only create one Spark Session in your application, but for demo purpose we recreate them
     .builder()
     .appName("spark-project")
+    .config("spark.mongodb.input.uri", "mongodb://" + mongoIP + ":27017/music_data.triplets")
+    .config("spark.mongodb.output.uri", "mongodb://" + mongoIP + ":27017/music_data.results")
+    .config("kafkaIP", kafkaIP + ":9092")
+    .config("trainFlag", trainFlag)
     .getOrCreate()
 
-  override def pathToCsv = getClass.getResource("/csv/train_triplets.csv").getPath
 
-//  val master = "local[2]"
-
-//  val conf = new SparkConf().setMaster(master)
   override def streamingContext: StreamingContext= new StreamingContext(sparkSession.sparkContext, Seconds(1))
-
   run() // Run is defined in the tait SparkBootcamp
 }

@@ -1,6 +1,4 @@
 package nl.rug.sc.app
-import com.mongodb.spark._
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
@@ -11,15 +9,14 @@ object SparkLocalMain extends App with SparkTrait {
     .builder()
     .appName("spark-project")
     .master(master)
-    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data2.triplets")
-    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/music_data2.results")
+    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data.triplets")
+    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/music_data.results")
+    .config("kafkaIP", "localhost:9092")
+    .config("trainFlag", "false")
     .getOrCreate()
 
 //    .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/music_data.triplets")
 //    .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/music_data2.triplets")
-
-  override def pathToCsv = getClass.getResource("/csv/train_triplets.csv").getPath
-
 
   override def streamingContext: StreamingContext= new StreamingContext(sparkSession.sparkContext, Seconds(1))
 

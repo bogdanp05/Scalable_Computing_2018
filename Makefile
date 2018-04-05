@@ -29,3 +29,18 @@ cluster_slave:
 	@echo ${MASTER_IP}
 	@docker run -d --rm --name spark-slave briansetz/docker-spark:2.2.1 spark/sbin/start-slave.sh spark://${MASTER_IP}:7077
 
+compose:
+	@docker-compose up -d --build --remove-orphans --scale spark-worker=2
+
+assembly:
+	@(cd ./Project && sbt assembly)
+
+deploy:
+	$(eval MASTER_IP=$(shell docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' spark-master))
+	@echo ${MASTER_IP}
+	$(eval MONGO_IP=$(shell docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' mongoCluster))
+	@echo ${MONGO_IP}
+	$(eval KAFKA_IP=$(shell docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kafka))
+	@echo ${KAFKA_IP}
+	${SPARK_HOME}/bin/spark-submit --class nl.rug.sc.app.SparkSubmitMain --deploy-mode client --master spark://${MASTER_IP}:7077 --executor-memory 5G ./Project/target/scala-2.11/Project-assembly-0.1.jar ${MONGO_IP} $(KAFKA_IP) false
+
